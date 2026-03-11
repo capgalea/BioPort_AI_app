@@ -1,0 +1,791 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Australian Patent Search API",
+    "description": "Australian Patent Search API",
+    "version": "v1"
+  },
+  "paths": {
+    "/patent": {},
+    "/patent/{ipRightIdentifier}": {
+      "get": {
+        "operationId": "Search for Patents by Australian Application Number",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "ipRightIdentifier",
+            "required": true,
+            "in": "path",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-amf-mediaType": "application/json",
+            "schema": {
+              "$ref": "#/definitions/ApiPatent"
+            }
+          }
+        },
+        "security": [
+          {
+            "security.oauth2_client_credentials": []
+          }
+        ]
+      }
+    },
+    "/patent/{ipRightIdentifier}/documents/{documentIdentifier}": {
+      "get": {
+        "produces": [
+          "application/pdf"
+        ],
+        "parameters": [
+          {
+            "name": "ipRightIdentifier",
+            "required": true,
+            "in": "path",
+            "type": "string"
+          },
+          {
+            "name": "documentIdentifier",
+            "required": true,
+            "in": "path",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "x-amf-mediaType": "application/pdf",
+            "schema": {}
+          }
+        },
+        "security": [
+          {
+            "security.oauth2_client_credentials": []
+          }
+        ]
+      }
+    },
+    "/search/quick": {
+      "post": {
+        "operationId": "Patent Quick Search",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "x-amf-mediaType": "application/json",
+            "in": "body",
+            "name": "generated",
+            "schema": {
+              "$ref": "#/definitions/PatentApiQuickSearchRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "x-amf-mediaType": "application/json",
+            "schema": {
+              "$ref": "#/definitions/PatentApiQuickSearchResult"
+            }
+          }
+        },
+        "security": [
+          {
+            "security.oauth2_client_credentials": []
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ApiPatent": {
+      "type": "object",
+      "required": [
+        "applicant",
+        "pctDetails",
+        "bibliographicData",
+        "divisionalParentPriorityDate",
+        "expiryDate",
+        "filedDate",
+        "historyEventAdvertCode",
+        "ipRightStatusEvent",
+        "ipRightStatusCode",
+        "inforceToDate",
+        "inventors",
+        "lifecycleDetails",
+        "auOPIDate",
+        "owners",
+        "priorityDate",
+        "publications",
+        "publishedDocuments",
+        "relatedPatents",
+        "representatives"
+      ],
+      "properties": {
+        "applicant": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "legalEntityName"
+            ],
+            "properties": {
+              "legalEntityName": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        },
+        "pctDetails": {
+          "$ref": "#/definitions/PCTDetails"
+        },
+        "bibliographicData": {
+          "$ref": "#/definitions/BibliographicData"
+        },
+        "divisionalParentPriorityDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "expiryDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "filedDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "historyEventAdvertCode": {
+          "type": "array"
+        },
+        "ipRightStatusEvent": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "ipRightStatusCode",
+              "ipRightStatusDate"
+            ],
+            "properties": {
+              "ipRightStatusCode": {
+                "$ref": "#/definitions/NotBlankString"
+              },
+              "ipRightStatusDate": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        },
+        "ipRightStatusCode": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "inforceToDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "inventors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "legalEntityName"
+            ],
+            "properties": {
+              "legalEntityName": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        },
+        "lifecycleDetails": {
+          "$ref": "#/definitions/LifecycleDetails"
+        },
+        "auOPIDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "legalEntityName"
+            ],
+            "properties": {
+              "legalEntityName": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        },
+        "priorityDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        },
+        "publications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "historyEventAdvertCode",
+              "publicationDate"
+            ],
+            "properties": {
+              "historyEventAdvertCode": {
+                "$ref": "#/definitions/NotBlankString"
+              },
+              "publicationDate": {
+                "example": "2015-05-23",
+                "type": "string",
+                "format": "date"
+              }
+            }
+          }
+        },
+        "publishedDocuments": {
+          "$ref": "#/definitions/PublishedDocuments"
+        },
+        "relatedPatents": {
+          "$ref": "#/definitions/RelatedPatents"
+        },
+        "representatives": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "legalEntityName"
+            ],
+            "properties": {
+              "legalEntityName": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        }
+      }
+    },
+    "PatentApiQuickSearchRequest": {
+      "type": "object",
+      "required": [
+        "query",
+        "searchType"
+      ],
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "searchType": {
+          "enum": [
+            "ID",
+            "DETAILS"
+          ],
+          "type": "string"
+        },
+        "sort": {
+          "$ref": "#/definitions/PatentApiQuickSearchSort"
+        },
+        "pageSize": {
+          "description": "Used for pagination, only applies to DETAILS search.",
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 50.0
+        },
+        "pageNumber": {
+          "description": "Used for pagination, only applies to DETAILS search.",
+          "type": "number",
+          "minimum": 0.0
+        },
+        "searchMode": {
+          "description": "The type of search that will be executed.",
+          "default": "QUICK_NO_ABSTRACT",
+          "enum": [
+            "ADVANCED_FULL_TEXT",
+            "ADVANCED_NO_FULL_TEXT",
+            "QUICK_ABSTRACT",
+            "QUICK_NO_ABSTRACT"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "PatentApiQuickSearchResult": {
+      "x-amf-union": [
+        {
+          "$ref": "#/definitions/QuickSearchDetailsResponse"
+        },
+        {
+          "$ref": "#/definitions/QuickSearchIDResponse"
+        }
+      ]
+    },
+    "PCTDetails": {
+      "type": "object",
+      "required": [
+        "oldPCTNumber",
+        "oldWIPONumber",
+        "pctNumber",
+        "wipoNumber",
+        "pctNationalPhaseEntryDate"
+      ],
+      "properties": {
+        "oldPCTNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "oldWIPONumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "pctNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "wipoNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "pctNationalPhaseEntryDate": {
+          "example": "2015-05-23",
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "BibliographicData": {
+      "type": "object",
+      "required": [
+        "applicationNumber",
+        "conventionApplicationIndicator",
+        "currentlyUnderOpposition",
+        "inventionTitle",
+        "oldAustralianApplicationNumber",
+        "pctApplicationIndicator",
+        "pctDetails",
+        "patentApplicationType",
+        "ipcrClassification",
+        "serialNumber",
+        "conventionDetails"
+      ],
+      "properties": {
+        "applicationNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "conventionApplicationIndicator": {
+          "type": "boolean"
+        },
+        "currentlyUnderOpposition": {
+          "type": "boolean"
+        },
+        "inventionTitle": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "title"
+            ],
+            "properties": {
+              "title": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          }
+        },
+        "oldAustralianApplicationNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "pctApplicationIndicator": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "pctDetails": {
+          "$ref": "#/definitions/PCTDetails"
+        },
+        "patentApplicationType": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "ipcrClassification": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "classificationText",
+              "sequenceNumber"
+            ],
+            "properties": {
+              "classificationText": {
+                "$ref": "#/definitions/NotBlankString"
+              },
+              "sequenceNumber": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "serialNumber": {
+          "$ref": "#/definitions/NotBlankString"
+        },
+        "conventionDetails": {
+          "$ref": "#/definitions/ConventionDetails"
+        }
+      }
+    },
+    "NotBlankString": {
+      "type": "string",
+      "pattern": "^.*\\S.*$"
+    },
+    "LifecycleDetails": {
+      "type": "object",
+      "required": [
+        "acceptanceDetails",
+        "extensionsOfTerm",
+        "sealingDetails"
+      ],
+      "properties": {
+        "acceptanceDetails": {
+          "type": "object",
+          "required": [
+            "acceptancePublishedDate"
+          ],
+          "properties": {
+            "acceptancePublishedDate": {
+              "example": "2015-05-23",
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "extensionsOfTerm": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "extensionOfTerm"
+            ],
+            "properties": {
+              "extensionOfTerm": {
+                "type": "object",
+                "required": [
+                  "pharmaceuticalName"
+                ],
+                "properties": {
+                  "pharmaceuticalName": {
+                    "$ref": "#/definitions/NotBlankString"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "sealingDetails": {
+          "type": "object",
+          "required": [
+            "sealingDate"
+          ],
+          "properties": {
+            "sealingDate": {
+              "example": "2015-05-23",
+              "type": "string",
+              "format": "date"
+            }
+          }
+        }
+      }
+    },
+    "PublishedDocuments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "abstractText",
+          "claimsText",
+          "descriptionText",
+          "documentTypeCode",
+          "documentName",
+          "fileName"
+        ],
+        "properties": {
+          "abstractText": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "claimsText": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "descriptionText": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "documentTypeCode": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "documentName": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "fileName": {
+            "$ref": "#/definitions/NotBlankString"
+          }
+        }
+      }
+    },
+    "RelatedPatents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "oldAustralianApplicationNumber",
+          "pctDetails",
+          "relationshipCode",
+          "serialNumber",
+          "applicationNumber"
+        ],
+        "properties": {
+          "oldAustralianApplicationNumber": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "pctDetails": {
+            "type": "object",
+            "required": [
+              "oldPCTNumber",
+              "pctNumber"
+            ],
+            "properties": {
+              "oldPCTNumber": {
+                "$ref": "#/definitions/NotBlankString"
+              },
+              "pctNumber": {
+                "$ref": "#/definitions/NotBlankString"
+              }
+            }
+          },
+          "relationshipCode": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "serialNumber": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "applicationNumber": {
+            "$ref": "#/definitions/NotBlankString"
+          }
+        }
+      }
+    },
+    "PatentApiQuickSearchSort": {
+      "type": "object",
+      "required": [
+        "field",
+        "direction"
+      ],
+      "properties": {
+        "field": {
+          "default": "APPLICATION_NUMBER",
+          "enum": [
+            "AGENT",
+            "APPLICANT",
+            "APPLICATION_NUMBER",
+            "APPLICATION_STATUS",
+            "EARLIEST_PRIORITY_DATE",
+            "FILING_DATE",
+            "FIRST_IPC_MARK",
+            "INVENTION_TITLE",
+            "INVENTOR",
+            "PCT_NUMBER",
+            "SERIAL_NUMBER",
+            "WIPO_NUMBER"
+          ],
+          "type": "string"
+        },
+        "direction": {
+          "default": "DESC",
+          "enum": [
+            "ASC",
+            "DESC"
+          ],
+          "type": "string"
+        }
+      }
+    },
+    "QuickSearchDetailsResponse": {
+      "type": "object",
+      "required": [
+        "totalHits",
+        "request",
+        "results"
+      ],
+      "properties": {
+        "totalHits": {
+          "type": "number"
+        },
+        "request": {
+          "$ref": "#/definitions/PatentApiQuickSearchRequest"
+        },
+        "results": {
+          "type": "object",
+          "required": [
+            "applicationNumber",
+            "pctNumber",
+            "title",
+            "filingDate",
+            "applicants",
+            "applicationStatus"
+          ],
+          "properties": {
+            "applicationNumber": {
+              "x-amf-union": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "pctNumber": {
+              "x-amf-union": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": {
+              "x-amf-union": [
+                {
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "filingDate": {
+              "x-amf-union": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "applicants": {
+              "x-amf-union": [
+                {
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "applicationStatus": {
+              "x-amf-union": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "QuickSearchIDResponse": {
+      "type": "object",
+      "required": [
+        "totalHits",
+        "request",
+        "results"
+      ],
+      "properties": {
+        "totalHits": {
+          "type": "number"
+        },
+        "request": {
+          "$ref": "#/definitions/PatentApiQuickSearchRequest"
+        },
+        "results": {
+          "type": "array"
+        }
+      }
+    },
+    "ConventionDetails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "priorityTypeCode",
+          "applicationNumber",
+          "oldApplicationNumber",
+          "priorityApplicationFilingDate",
+          "priorityCountryCode"
+        ],
+        "properties": {
+          "priorityTypeCode": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "applicationNumber": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "oldApplicationNumber": {
+            "$ref": "#/definitions/NotBlankString"
+          },
+          "priorityApplicationFilingDate": {
+            "example": "2015-05-23",
+            "type": "string",
+            "format": "date"
+          },
+          "priorityCountryCode": {
+            "$ref": "#/definitions/NotBlankString"
+          }
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "security.oauth2_client_credentials": {
+      "type": "oauth2",
+      "description": "OAuth 2.0 for authenticating machine to machine API requests.\n",
+      "x-amf-describedBy": {
+        "headers": {
+          "Authorization": {
+            "description": "Used to send a valid OAuth 2 access token. Do not use\nwith the \"access_token\" query string parameter.\n",
+            "required": false,
+            "type": "string"
+          }
+        },
+        "queryParameters": {
+          "access_token": {
+            "description": "Used to send a valid OAuth 2 access token. Do not use together with\nthe \"Authorization\" header\n",
+            "required": false,
+            "type": "string"
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Bad or expired token. This can happen if the API consumer use a  revoked or expired an access token.\nTo fix, you should re-authenticate the user.\n"
+          },
+          "403": {
+            "description": "Bad OAuth request (wrong consumer key, bad nonce, expired\ntimestamp...). Unfortunately, re-authenticating the user won't help here.\n"
+          }
+        }
+      },
+      "tokenUrl": "https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token",
+      "x-amf-settings": {
+        "authorizationGrants": [
+          "client_credentials"
+        ]
+      }
+    }
+  }
+}
