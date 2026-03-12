@@ -1,0 +1,180 @@
+node_modules/@google/genai/dist/index.cjs:    throw new Error('`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`');
+node_modules/@google/genai/dist/index.cjs:        this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/@google/genai/dist/node/index.cjs:    throw new Error('`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`');
+node_modules/@google/genai/dist/node/index.cjs:        this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/@google/genai/dist/node/index.mjs:    throw new Error('`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`');
+node_modules/@google/genai/dist/node/index.mjs:        this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/@google/genai/dist/web/index.mjs:    throw new Error('`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`');
+node_modules/@google/genai/dist/web/index.mjs:        this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/@google/genai/dist/index.mjs:    throw new Error('`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`');
+node_modules/@google/genai/dist/index.mjs:        this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/@protobufjs/fetch/tests/index.js:var fetch = require("..");
+node_modules/@supabase/functions-js/dist/main/FunctionsClient.js:        this.fetch = (0, helper_1.resolveFetch)(customFetch);
+node_modules/@supabase/functions-js/dist/module/FunctionsClient.js:        this.fetch = resolveFetch(customFetch);
+node_modules/@supabase/functions-js/src/FunctionsClient.ts:    this.fetch = resolveFetch(customFetch)
+node_modules/@supabase/gotrue-js/dist/main/GoTrueAdminApi.js:        this.fetch = (0, helpers_1.resolveFetch)(fetch);
+node_modules/@supabase/gotrue-js/dist/main/GoTrueClient.js:        this.fetch = (0, helpers_1.resolveFetch)(settings.fetch);
+node_modules/@supabase/gotrue-js/dist/module/GoTrueAdminApi.js:        this.fetch = resolveFetch(fetch);
+node_modules/@supabase/gotrue-js/dist/module/GoTrueClient.js:        this.fetch = resolveFetch(settings.fetch);
+node_modules/@supabase/gotrue-js/src/GoTrueAdminApi.ts:    this.fetch = resolveFetch(fetch)
+node_modules/@supabase/gotrue-js/src/GoTrueClient.ts:    this.fetch = resolveFetch(settings.fetch)
+node_modules/@supabase/node-fetch/browser.js:export const fetch = globalObject.fetch;
+node_modules/@supabase/node-fetch/README.md:const fetch = require('node-fetch');
+node_modules/@supabase/node-fetch/README.md:const fetch = require('node-fetch');
+node_modules/@supabase/node-fetch/README.md:const fetch = require('node-fetch');
+node_modules/@supabase/storage-js/dist/index.cjs:		this.fetch = resolveFetch(fetch$1);
+node_modules/@supabase/storage-js/dist/index.mjs:		this.fetch = resolveFetch(fetch$1);
+node_modules/@supabase/storage-js/src/lib/common/BaseApiClient.ts:    this.fetch = resolveFetch(fetch)
+node_modules/@supabase/supabase-js/dist/main/lib/fetch.js:        _fetch = customFetch;
+node_modules/@supabase/supabase-js/dist/main/lib/fetch.js:    else if (typeof fetch === 'undefined') {
+node_modules/@supabase/supabase-js/dist/main/lib/fetch.js:        _fetch = node_fetch_1.default;
+node_modules/@supabase/supabase-js/dist/main/lib/fetch.js:        _fetch = fetch;
+node_modules/@supabase/supabase-js/dist/main/lib/fetch.js:    const fetch = (0, exports.resolveFetch)(customFetch);
+node_modules/@supabase/supabase-js/dist/main/SupabaseClient.js:        this.fetch = (0, fetch_1.fetchWithAuth)(supabaseKey, this._getAccessToken.bind(this), (_g = settings.global) === null || _g === void 0 ? void 0 : _g.fetch);
+node_modules/@supabase/supabase-js/dist/module/lib/fetch.js:        _fetch = customFetch;
+node_modules/@supabase/supabase-js/dist/module/lib/fetch.js:    else if (typeof fetch === 'undefined') {
+node_modules/@supabase/supabase-js/dist/module/lib/fetch.js:        _fetch = nodeFetch;
+node_modules/@supabase/supabase-js/dist/module/lib/fetch.js:        _fetch = fetch;
+node_modules/@supabase/supabase-js/dist/module/lib/fetch.js:    const fetch = resolveFetch(customFetch);
+node_modules/@supabase/supabase-js/dist/module/SupabaseClient.js:        this.fetch = fetchWithAuth(supabaseKey, this._getAccessToken.bind(this), (_g = settings.global) === null || _g === void 0 ? void 0 : _g.fetch);
+node_modules/@supabase/supabase-js/src/lib/fetch.ts:    _fetch = customFetch
+node_modules/@supabase/supabase-js/src/lib/fetch.ts:  } else if (typeof fetch === 'undefined') {
+node_modules/@supabase/supabase-js/src/lib/fetch.ts:    _fetch = nodeFetch as unknown as Fetch
+node_modules/@supabase/supabase-js/src/lib/fetch.ts:    _fetch = fetch
+node_modules/@supabase/supabase-js/src/lib/fetch.ts:  const fetch = resolveFetch(customFetch)
+node_modules/@supabase/supabase-js/src/SupabaseClient.ts:    this.fetch = fetchWithAuth(supabaseKey, this._getAccessToken.bind(this), settings.global?.fetch)
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js:            this.fetch = builder.fetch;
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js:        else if (typeof fetch === 'undefined') {
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js:            this.fetch = node_fetch_1.default;
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js:            this.fetch = fetch;
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestBuilder.js:        const _fetch = this.fetch;
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestClient.js:        this.fetch = fetch;
+node_modules/@supabase/postgrest-js/dist/cjs/PostgrestQueryBuilder.js:        this.fetch = fetch;
+node_modules/@supabase/postgrest-js/src/PostgrestBuilder.ts:      this.fetch = builder.fetch
+node_modules/@supabase/postgrest-js/src/PostgrestBuilder.ts:    } else if (typeof fetch === 'undefined') {
+node_modules/@supabase/postgrest-js/src/PostgrestBuilder.ts:      this.fetch = nodeFetch
+node_modules/@supabase/postgrest-js/src/PostgrestBuilder.ts:      this.fetch = fetch
+node_modules/@supabase/postgrest-js/src/PostgrestBuilder.ts:    const _fetch = this.fetch
+node_modules/@supabase/postgrest-js/src/PostgrestClient.ts:    this.fetch = fetch
+node_modules/@supabase/postgrest-js/src/PostgrestQueryBuilder.ts:    this.fetch = fetch
+node_modules/@supabase/realtime-js/dist/main/RealtimeClient.js:        this.fetch = this._resolveFetch(options === null || options === void 0 ? void 0 : options.fetch);
+node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js:        this.fetch = this._resolveFetch(options === null || options === void 0 ? void 0 : options.fetch);
+node_modules/@supabase/realtime-js/src/RealtimeClient.ts:    this.fetch = this._resolveFetch(options?.fetch)
+node_modules/axios/dist/browser/axios.cjs:  const isFetchSupported = envFetch ? isFunction(envFetch) : typeof fetch === 'function';
+node_modules/axios/dist/browser/axios.cjs:    let _fetch = envFetch || fetch;
+node_modules/axios/dist/node/axios.cjs:  const isFetchSupported = envFetch ? isFunction(envFetch) : typeof fetch === 'function';
+node_modules/axios/dist/node/axios.cjs:    let _fetch = envFetch || fetch;
+node_modules/axios/dist/axios.js:    var isFetchSupported = envFetch ? isFunction(envFetch) : typeof fetch === 'function';
+node_modules/axios/dist/axios.js:              _fetch = envFetch || fetch;
+node_modules/axios/dist/axios.js:    var fetch = env.fetch,
+node_modules/axios/dist/esm/axios.js:  const isFetchSupported = envFetch ? isFunction(envFetch) : typeof fetch === 'function';
+node_modules/axios/dist/esm/axios.js:    let _fetch = envFetch || fetch;
+node_modules/axios/lib/adapters/fetch.js:  const isFetchSupported = envFetch ? isFunction(envFetch) : typeof fetch === 'function';
+node_modules/axios/lib/adapters/fetch.js:    let _fetch = envFetch || fetch;
+node_modules/canvg/lib/index.cjs:      fetch = _ref.fetch;
+node_modules/canvg/lib/index.cjs:        _ref$fetch = _ref.fetch,
+node_modules/canvg/lib/index.cjs:        fetch = _ref$fetch === void 0 ? defaultFetch$1 : _ref$fetch,
+node_modules/canvg/lib/index.cjs:    this.fetch = fetch;
+node_modules/canvg/lib/index.cjs:        _ref$fetch = _ref.fetch,
+node_modules/canvg/lib/index.cjs:        fetch = _ref$fetch === void 0 ? defaultFetch : _ref$fetch,
+node_modules/canvg/lib/index.cjs:    this.fetch = fetch;
+node_modules/canvg/lib/index.babel.js:    constructor(ctx, { fetch = defaultFetch$1, window = defaultWindow } = {}) {
+node_modules/canvg/lib/index.babel.js:        this.fetch = fetch;
+node_modules/canvg/lib/index.babel.js:    constructor({ fetch = defaultFetch, DOMParser = DefaultDOMParser } = {}) {
+node_modules/canvg/lib/index.babel.js:        this.fetch = fetch;
+node_modules/canvg/lib/index.es.js:      fetch = defaultFetch$1,
+node_modules/canvg/lib/index.es.js:    this.fetch = fetch;
+node_modules/canvg/lib/index.es.js:      fetch = defaultFetch,
+node_modules/canvg/lib/index.es.js:    this.fetch = fetch;
+node_modules/formdata-polyfill/FormData.js:  const _fetch = global.Request && global.fetch
+node_modules/formdata-polyfill/FormData.js:    global.fetch = function (input, init) {
+node_modules/gaxios/build/cjs/src/gaxios.js:     * const myFetch: typeof fetch = (...args) => gaxios.fetch(...args);
+node_modules/gaxios/build/cjs/src/gaxios.d.ts:     * const myFetch: typeof fetch = (...args) => gaxios.fetch(...args);
+node_modules/gaxios/build/esm/src/gaxios.js:     * const myFetch: typeof fetch = (...args) => gaxios.fetch(...args);
+node_modules/gaxios/build/esm/src/gaxios.d.ts:     * const myFetch: typeof fetch = (...args) => gaxios.fetch(...args);
+node_modules/google-auth-library/build/src/auth/authclient.js:     * const fetchWithAuthClient: typeof fetch = (...args) => authClient.fetch(...args);
+node_modules/google-auth-library/build/src/auth/googleauth.js:     * const fetchWithAuth: typeof fetch = (...args) => auth.fetch(...args);
+node_modules/google-auth-library/build/src/auth/authclient.d.ts:     * const fetchWithAuthClient: typeof fetch = (...args) => authClient.fetch(...args);
+node_modules/google-auth-library/build/src/auth/googleauth.d.ts:     * const fetchWithAuth: typeof fetch = (...args) => auth.fetch(...args);
+node_modules/html2canvas/dist/lib/core/features.js:        var value = typeof Array.from === 'function' && typeof window.fetch === 'function'
+node_modules/html2canvas/dist/html2canvas.esm.js:        var value = typeof Array.from === 'function' && typeof window.fetch === 'function'
+node_modules/html2canvas/dist/html2canvas.js:            var value = typeof Array.from === 'function' && typeof window.fetch === 'function'
+node_modules/node-fetch/README.md:const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+node_modules/node-fetch/README.md:  globalThis.fetch = fetch
+node_modules/p-retry/readme.md:const fetch = require('node-fetch');
+node_modules/posthog-js/lib/src/utils/globals.js:export var fetch = global === null || global === void 0 ? void 0 : global.fetch;
+node_modules/posthog-js/lib/src/request.js:var _fetch = function (options) {
+node_modules/protobufjs/src/root.js:Root.prototype.fetch = util.fetch;
+node_modules/protobufjs/dist/light/protobuf.js:Root.prototype.fetch = util.fetch;
+node_modules/protobufjs/dist/protobuf.js:Root.prototype.fetch = util.fetch;
+node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js:                status.fetch = 'get';
+node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js:                status.fetch = 'miss';
+node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js:                    status.fetch = 'inflight';
+node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js:                    status.fetch = 'hit';
+node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js:                status.fetch = isStale ? 'stale' : 'refresh';
+node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js:                status.fetch = 'get';
+node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js:                status.fetch = 'miss';
+node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js:                    status.fetch = 'inflight';
+node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js:                    status.fetch = 'hit';
+node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js:                status.fetch = isStale ? 'stale' : 'refresh';
+node_modules/tailwindcss/peers/index.js:var require_fetch = __commonJS({
+node_modules/tailwindcss/peers/index.js:var require_link_rel_dns_prefetch = __commonJS({
+node_modules/tailwindcss/peers/index.js:var require_link_rel_prefetch = __commonJS({
+node_modules/@reduxjs/toolkit/dist/query/react/cjs/rtk-query-react.development.cjs:      const refetch = (0, import_react.useCallback)((options2) => {
+node_modules/@reduxjs/toolkit/dist/query/react/rtk-query-react.legacy-esm.js:      const refetch = useCallback((options2) => {
+node_modules/@reduxjs/toolkit/dist/query/react/rtk-query-react.modern.mjs:      const refetch = useCallback((options2) => {
+node_modules/@reduxjs/toolkit/dist/query/cjs/rtk-query.development.cjs:  if (typeof fetch === "undefined" && fetchFn === defaultFetchFn) {
+node_modules/@reduxjs/toolkit/dist/query/cjs/rtk-query.development.cjs:        const isForcedQueryNeedingRefetch = (
+node_modules/@reduxjs/toolkit/dist/query/cjs/rtk-query.development.cjs:  const prefetch = (endpointName, arg, options = {}) => (dispatch, getState) => {
+node_modules/@reduxjs/toolkit/dist/query/cjs/rtk-query.development.cjs:        const shouldRefetch = values.some((sub) => sub[type] === true) || values.every((sub) => sub[type] === void 0) && state.config[type];
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.legacy-esm.js:  if (typeof fetch === "undefined" && fetchFn === defaultFetchFn) {
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.legacy-esm.js:        const isForcedQueryNeedingRefetch = (
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.legacy-esm.js:  const prefetch = (endpointName, arg, options = {}) => (dispatch, getState) => {
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.legacy-esm.js:        const shouldRefetch = values.some((sub) => sub[type] === true) || values.every((sub) => sub[type] === void 0) && state.config[type];
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.modern.mjs:  if (typeof fetch === "undefined" && fetchFn === defaultFetchFn) {
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.modern.mjs:        const isForcedQueryNeedingRefetch = (
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.modern.mjs:  const prefetch = (endpointName, arg, options = {}) => (dispatch, getState) => {
+node_modules/@reduxjs/toolkit/dist/query/rtk-query.modern.mjs:        const shouldRefetch = values.some((sub) => sub[type] === true) || values.every((sub) => sub[type] === void 0) && state.config[type];
+node_modules/@reduxjs/toolkit/src/query/core/buildMiddleware/windowEventHandling.ts:        const shouldRefetch =
+node_modules/@reduxjs/toolkit/src/query/core/buildThunks.ts:        const isForcedQueryNeedingRefetch = // arg.forceRefetch
+node_modules/@reduxjs/toolkit/src/query/core/buildThunks.ts:  const prefetch =
+node_modules/@reduxjs/toolkit/src/query/tests/infiniteQueries.test.ts:    const pokemonApiWithRefetch = createApi({
+node_modules/@reduxjs/toolkit/src/query/tests/buildHooks.test.tsx:    const pokemonApiWithRefetch = createApi({
+node_modules/@reduxjs/toolkit/src/query/tests/buildHooks.test.tsx:      const handleRefetch = async () => {
+node_modules/@reduxjs/toolkit/src/query/react/buildHooks.ts:      const refetch = useCallback(
+node_modules/@reduxjs/toolkit/src/query/fetchBaseQuery.ts:const defaultFetchFn: typeof fetch = (...args) => fetch(...args)
+node_modules/@reduxjs/toolkit/src/query/fetchBaseQuery.ts:  if (typeof fetch === 'undefined' && fetchFn === defaultFetchFn) {
+node_modules/.vite/deps/@supabase_supabase-js.js:          this.fetch = builder.fetch;
+node_modules/.vite/deps/@supabase_supabase-js.js:        } else if (typeof fetch === "undefined") {
+node_modules/.vite/deps/@supabase_supabase-js.js:          this.fetch = node_fetch_1.default;
+node_modules/.vite/deps/@supabase_supabase-js.js:          this.fetch = fetch;
+node_modules/.vite/deps/@supabase_supabase-js.js:        const _fetch = this.fetch;
+node_modules/.vite/deps/@supabase_supabase-js.js:        this.fetch = fetch3;
+node_modules/.vite/deps/@supabase_supabase-js.js:        this.fetch = fetch3;
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = resolveFetch(customFetch);
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = this._resolveFetch(options === null || options === void 0 ? void 0 : options.fetch);
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = resolveFetch2(fetch$1);
+node_modules/.vite/deps/@supabase_supabase-js.js:    _fetch = customFetch;
+node_modules/.vite/deps/@supabase_supabase-js.js:  } else if (typeof fetch === "undefined") {
+node_modules/.vite/deps/@supabase_supabase-js.js:    _fetch = browser_default;
+node_modules/.vite/deps/@supabase_supabase-js.js:    _fetch = fetch;
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = resolveFetch4(fetch3);
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = resolveFetch4(settings.fetch);
+node_modules/.vite/deps/@supabase_supabase-js.js:    this.fetch = fetchWithAuth(supabaseKey, this._getAccessToken.bind(this), (_g = settings.global) === null || _g === void 0 ? void 0 : _g.fetch);
+node_modules/.vite/deps/axios.js:  const isFetchSupported = envFetch ? isFunction2(envFetch) : typeof fetch === "function";
+node_modules/.vite/deps/axios.js:    let _fetch = envFetch || fetch;
+node_modules/.vite/deps/html2canvas.js:    var value = typeof Array.from === "function" && typeof window.fetch === "function" ? testForeignObject(document) : Promise.resolve(false);
+node_modules/.vite/deps/index.es-4UOH7IDW.js:    this.fetch = fetch2;
+node_modules/.vite/deps/index.es-4UOH7IDW.js:    this.fetch = fetch2;
+node_modules/.vite/deps/@google_genai.js:  throw new Error("`fetch` is not defined as a global; Either pass `fetch` to the client, `new GeminiNextGenAPIClient({ fetch })` or polyfill the global, `globalThis.fetch = fetch`");
+node_modules/.vite/deps/@google_genai.js:    this.fetch = (_j = options.fetch) !== null && _j !== void 0 ? _j : getDefaultFetch();
+node_modules/proxy-agent/node_modules/lru-cache/index.js:      if (status) status.fetch = 'get'
+node_modules/proxy-agent/node_modules/lru-cache/index.js:      if (status) status.fetch = 'miss'
+node_modules/proxy-agent/node_modules/lru-cache/index.js:          status.fetch = 'inflight'
+node_modules/proxy-agent/node_modules/lru-cache/index.js:        if (status) status.fetch = 'hit'
+node_modules/proxy-agent/node_modules/lru-cache/index.js:        status.fetch = hasStale && isStale ? 'stale' : 'refresh'
+node_modules/proxy-agent/node_modules/lru-cache/index.mjs:      if (status) status.fetch = 'get'
+node_modules/proxy-agent/node_modules/lru-cache/index.mjs:      if (status) status.fetch = 'miss'
+node_modules/proxy-agent/node_modules/lru-cache/index.mjs:          status.fetch = 'inflight'
+node_modules/proxy-agent/node_modules/lru-cache/index.mjs:        if (status) status.fetch = 'hit'
+node_modules/proxy-agent/node_modules/lru-cache/index.mjs:        status.fetch = hasStale && isStale ? 'stale' : 'refresh'

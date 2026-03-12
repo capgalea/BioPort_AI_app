@@ -206,7 +206,7 @@ export const fetchAllClinicalTrials = async (companyName: string): Promise<Pipel
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return [];
   
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `
   Perform a Comprehensive Clinical Pipeline Audit for "${companyName}".
   
@@ -267,7 +267,7 @@ export const fetchLatestNews = async (
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return [];
   
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   
   const categoriesStr = categories.length > 0 
     ? categories.join(", ") 
@@ -529,7 +529,7 @@ export const analyzeCompanies = async (
 
   const fetchBatch = async (batch: string[]): Promise<CompanyData[]> => {
     checkAbort(signal);
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
     const prompt = `
       ROLE: High-Fidelity Biopharma Intelligence Analyst.
       TARGETS: ${JSON.stringify(batch)}
@@ -628,7 +628,7 @@ export const discoverWithAgent = async (
 
   const externalSearchPromise = (sources.filter(s => s !== 'internal_db').length > 0)
     ? (async () => {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
         const prompt = `Identify top 8 biotech/pharma entities for: "${query}" in "${region}". Use common brand names. Return JSON { "names": ["Name1", "Name2", ...] }.`;
         try {
           const response: GenerateContentResponse = await withExponentialBackoff(() => 
@@ -699,7 +699,7 @@ export const performDrugDeepSearch = async (
 
   const fetchBatch = async (batch: string[]): Promise<DrugDeepDive[]> => {
     checkAbort(signal);
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
     
     const prompt = `Conduct deep pharmaceutical analysis for these queries: ${JSON.stringify(batch)}. 
     
@@ -808,7 +808,7 @@ export const searchScienceJobs = async (filters: {
 }): Promise<JobOpportunity[]> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return [];
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const query = `Find 5 real science job openings: Query="${filters.keywords}", Loc="${filters.location}". Return JSON.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
@@ -832,7 +832,7 @@ export const searchScienceJobs = async (filters: {
 export const analyzeResearcher = async (name: string, institution: string): Promise<ResearcherProfile | null> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return null;
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `Generate a profile for Researcher: ${name}, Institution: ${institution}. Return JSON {bio, workDescription, projects:[], publications:[{title, source, year}]}. DO NOT invent dummy data. If specific information is missing, return null or empty arrays.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
@@ -849,7 +849,7 @@ export const analyzeResearcher = async (name: string, institution: string): Prom
 export const analyzeDrug = async (drugName: string): Promise<DrugProfile | null> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return null;
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `Create a comprehensive pharmacological profile for "${drugName}". Return JSON {name, description, mechanismOfAction, indications:[], approvalDate, drugClass, sideEffects:[]}. DO NOT invent dummy data. If specific information is missing, return null or empty arrays.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
@@ -874,7 +874,7 @@ export const discoverCompaniesBySector = async (
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error("API Key required.");
   checkAbort(signal);
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `Identify top ${limit} entities for: "${sectorQuery}" in "${region}". Return JSON { "companies": ["Brand1", "Brand2"] }.`;
   try {
      const res: GenerateContentResponse = await withExponentialBackoff(() => 
@@ -907,7 +907,7 @@ export const fetchDetailedPatentsFromIPAustralia = async (query: string): Promis
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return [];
   
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `
   Search the IP Australia Patent Registry for patents related to "${query}".
   
@@ -973,7 +973,7 @@ export const fetchPatentsFromIPAustralia = async (query: string): Promise<Patent
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) return [];
   
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `
   Search the IP Australia Patent Registry for patents related to "${query}".
   
@@ -1049,7 +1049,7 @@ export const fetchPatentsFromIPAustralia = async (query: string): Promise<Patent
 export const fetchPatentsFromGooglePatents = async (query: string): Promise<Patent[]> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error("API key missing");
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   const prompt = `
   Search Google Patents for patents related to "${query}".
   
@@ -1121,7 +1121,7 @@ export const chatWithAgent = async (
 ) => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error("Authorization key missing.");
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   
   let chat = existingChat;
 
@@ -1155,24 +1155,145 @@ export const chatWithAgent = async (
 
     // Refined system instruction to handle API failures gracefully
     const systemInstruction = `
-## Role
-You are the "Dynamic Data Acquisition Engine" for a biotech research platform. Your goal is to fulfill complex data queries by autonomously discovering and interacting with external data sources.
+SYSTEM PROMPT — BioScout IP Intelligence Assistant
+====================================================
 
-## Operational Protocol
-When a user query is received, you must follow these steps in a continuous loop:
+You are an expert AI assistant specialising in Australian intellectual
+property (IP) research, with primary focus on biotechnology, life sciences, and
+medical innovation. You retrieve and analyse real patent data exclusively from the
+IP Australia database via the Australian Patent Search API.
 
-1. **Intent Analysis**: Determine if the request requires real-time data or information not currently in your internal knowledge base (e.g., recent clinical trial phases, patent data, or company-specific information).
-2. **Source Discovery**: If external data is needed, identify the most suitable interface. You have access to specialized tools like \`googleSearch\` and \`searchGooglePatents\`. Use \`searchGooglePatents\` specifically for global patent landscape analysis or when IP Australia data is insufficient. For company-specific patent searches on Google Patents, ALWAYS use the \`assignee:"Company Name"\` filter to avoid irrelevant results from other sectors.
-3. **Execution & Validation**: Use the available tools to fetch data. Inspect the returned data. If the data is incomplete, refine your search.
-4. **Final Delivery**: Synthesize the retrieved data into a concise, structured answer for the user.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — API ARCHITECTURE & AUTHENTICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Constraints & Safety
-- **Data Privacy**: Never transmit PII (Personally Identifiable Information) to an external API or MCP server.
-- **Read-Only**: Unless explicitly authorized, only perform read operations.
-- **Error Handling**: If a tool call returns an error object (e.g. CORS or Network Error), DO NOT hallucinate data. Explicitly inform the user that the tool failed due to network/browser restrictions and suggest they may need a backend environment for that specific feature.
+The IP Australia Patent Search API uses OAuth 2.0 Client Credentials flow.
+Authentication is a mandatory two-step process before any data retrieval:
 
-## Contextual Focus
-Focus specifically on biotech-related entities: Australian and global biotechnology companies, venture capital funding rounds, academic research grants, and intellectual property.
+STEP 1 — Obtain Bearer Token:
+  Method:       POST
+  URL:          https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token
+  Content-Type: application/x-www-form-urlencoded
+  Body:         grant_type=client_credentials
+                &client_id={IP_AUSTRALIA_CLIENT_ID}
+                &client_secret={IP_AUSTRALIA_CLIENT_SECRET}
+
+  Expected Response:
+  {
+    "access_token": "<JWT>",
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  }
+
+  - Tokens are valid for 1 hour. Cache and reuse within that window.
+  - Never append ?key= or any query parameter to the token URL.
+  - No Authorization header is needed for this token request itself.
+
+STEP 2 — Use Token in API Requests:
+  Include the following header on ALL subsequent API calls:
+  Authorization: Bearer {access_token}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — API ENDPOINTS (PRODUCTION ONLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BASE URL:
+  https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/
+
+ENDPOINT 1 — Quick Patent Search:
+  Method:       POST
+  Path:         /search/quick
+  Full URL:     https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick
+  Content-Type: application/json
+  Headers:      Authorization: Bearer {token}
+
+  Request Body Example:
+  {
+    "query": "CRISPR gene editing",
+    "filters": {
+      "statusFilter": ["ACCEPTED", "FILED"],
+      "changedSinceDate": "2020-01-01"
+    }
+  }
+
+  - The "query" field supports keyword search across title, abstract, applicant
+    name, and application number.
+  - "filters" is optional but supports:
+      • statusFilter: ["ACCEPTED", "FILED", "LAPSED", "REFUSED", "WITHDRAWN"]
+      • changedSinceDate: ISO 8601 date string "YYYY-MM-DD"
+  - Returns a list of matching patent application numbers and basic metadata.
+
+ENDPOINT 2 — Get Full Patent by Application Number:
+  Method:       GET
+  Path:         /patent/{ipRightIdentifier}
+  Full URL:     https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/patent/{applicationNumber}
+  Headers:      Authorization: Bearer {token}
+
+  - Replace {applicationNumber} with the AU application number (e.g., AU2023100123).
+  - Returns full patent record including: title, abstract, claims, description,
+    inventors, applicants, owners, filing date, grant date, status, patent family,
+    family jurisdictions, and cited works.
+  - All responses are JSON.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — WHAT YOU MUST NEVER DO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- NEVER use the TEST environment (test.api.ipaustralia.gov.au) for live queries.
+- NEVER append ?key= or query parameters to the token URL or search URL.
+- NEVER include x-api-key or X-API-KEY headers; only Authorization: Bearer is valid.
+- NEVER fabricate, invent, or simulate patent data. If the API returns no results
+  or an error, report this clearly to the user — do not fall back to mock data.
+- NEVER use the /v1/search path. The correct path is /v1/search/quick.
+- NEVER make API calls without first obtaining a valid Bearer token.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — DATA INTERPRETATION & RESPONSE FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When you receive patent data from IP Australia, present it as follows:
+
+For each patent, display:
+  • Application Number (e.g., AU2023100123)
+  • Title
+  • Status (Accepted / Filed / Lapsed / etc.)
+  • Applicant(s) / Owner(s)
+  • Inventor(s)
+  • Date Filed
+  • Date Granted (if applicable)
+  • Abstract summary (2–3 sentences maximum)
+  • Patent Family jurisdictions (if available)
+
+When performing searches:
+  • Confirm to the user that results are sourced from the live IP Australia database.
+  • If zero results are returned, say so explicitly and suggest query refinements
+    (broader keywords, different terminology, or IPC classification codes).
+  • If an authentication error (401/403) occurs, advise the user to verify their
+    IP_AUSTRALIA_CLIENT_ID and IP_AUSTRALIA_CLIENT_SECRET in the .env.local file.
+  • If a rate limit (429) is encountered, advise waiting 60 seconds and retrying.
+  • If a 500 error occurs, advise the user to check the IP Australia API status
+    page or contact MDB-TDS@ipaustralia.gov.au.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — SCOPE & FOCUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You are purpose-built for IP intelligence in the life sciences domain. You ONLY
+retrieve data from the IP Australia database. Do not query any other patent
+database (e.g., USPTO, EPO, Google Patents) unless explicitly instructed by the
+user. You support research in areas including but not limited to:
+
+  • Biotechnology & synthetic biology
+  • Pharmaceuticals & drug delivery systems
+  • Medical devices & diagnostics
+  • CRISPR and gene editing technologies
+  • mRNA therapeutics
+  • Protein engineering
+  • Agricultural biotechnology
+  • Bioinformatics & genomics tools
+
+Always prioritise accuracy, transparency about data provenance, and clear
+communication of any API limitations or errors encountered.
 
 ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded company data to answer specific questions if applicable:\n${config.contextData}` : ''}
 `;
@@ -1254,7 +1375,7 @@ export const intelligentPatentSearch = async (
 ): Promise<Patent[]> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error("API key missing");
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
 
   // Agent 1: Parse Query (Patent Attorney)
   const parsePrompt = `

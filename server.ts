@@ -1,4 +1,5 @@
 import express from "express";
+import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -8,11 +9,15 @@ import { withExponentialBackoff } from "./src/utils/apiUtils.ts";
 
 dotenv.config();
 
+console.log("GEMINI_API_KEY set:", !!process.env.GEMINI_API_KEY);
+console.log("IP_AUSTRALIA_CLIENT_ID set:", !!process.env.IP_AUSTRALIA_CLIENT_ID);
+console.log("IP_AUSTRALIA_CLIENT_SECRET set:", !!process.env.IP_AUSTRALIA_CLIENT_SECRET);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -252,7 +257,7 @@ app.get("/api/test-token-env", async (req, res) => {
     params.append('client_id', IP_AU_CLIENT_ID || '');
     params.append('client_secret', IP_AU_CLIENT_SECRET || '');
 
-    const response = await axios.post("https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token", params.toString(), {
+    const response = await axios.post(TOKEN_URL, params.toString(), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded"
       }
@@ -284,26 +289,9 @@ app.get("/api/test-token-basic", async (req, res) => {
 
 app.get("/api/ask-gemini", async (req, res) => {
   try {
-    const { GoogleGenAI } = await import("@google/genai");
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, fetch: fetch as any } as any);
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: "What is the correct JSON payload for the IP Australia Australian Patent Search API v1 POST /search/quick endpoint? Please provide an example.",
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    res.json({ answer: response.text });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/ask-gemini", async (req, res) => {
-  try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3.1-pro",
       contents: "What is the correct JSON payload for the IP Australia Australian Patent Search API v1 POST /search/quick endpoint? Please provide an example. I need the exact properties it expects.",
       config: {
         tools: [{ googleSearch: {} }],
@@ -319,7 +307,7 @@ app.get("/api/ask-gemini", async (req, res) => {
 app.get("/api/test-swagger", async (req, res) => {
   try {
     const token = await getAccessToken();
-    const url = "https://test.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/search/quick";
+    const url = SEARCH_URL;
     
     const payloads = [
       { query: "biotech" },
@@ -390,8 +378,14 @@ async function setupVite() {
   }
 }
 
-setupVite().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+setupVite().catch(e => console.error("Vite setup failed:", e));
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`BioPort AI Server running on port ${PORT}`);
 });
+
+// setupVite().then(() => {
+//   app.listen(PORT, "0.0.0.0", () => {
+//     console.log(`Server running on http://localhost:${PORT}`);
+//   });
+// });

@@ -1,12 +1,14 @@
 
-export enum PipelinePhase {
-  Preclinical = "Preclinical",
-  Phase1 = "Phase I",
-  Phase2 = "Phase II",
-  Phase3 = "Phase III",
-  Filed = "Filed",
-  Approved = "Approved"
-}
+export const PipelinePhase = {
+  Preclinical: "Preclinical",
+  Phase1: "Phase I",
+  Phase2: "Phase II",
+  Phase3: "Phase III",
+  Filed: "Filed",
+  Approved: "Approved"
+} as const;
+
+export type PipelinePhase = typeof PipelinePhase[keyof typeof PipelinePhase];
 
 export interface PipelineDrug {
   drugName: string;
@@ -226,4 +228,4 @@ export interface Patent {
   source?: string;
 }
 
-export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics';
+export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'prospectGenerator';

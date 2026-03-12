@@ -19,7 +19,7 @@ export async function withExponentialBackoff<T>(
       retries++;
       
       // Don't retry if we've reached the limit or if it's a 4xx error (except 429)
-      const status = error.response?.status;
+      const status = error.response?.status || error.status || (error.message && JSON.parse(error.message.replace(/^ApiError: /, '') || '{}').error?.code);
       const isRateLimit = status === 429;
       const isServerError = status >= 500;
       const isNetworkError = !status; // No status usually means network error

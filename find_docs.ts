@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-const ai = new GoogleGenAI({ apiKey: apiKey });
+const ai = new GoogleGenAI({ apiKey: apiKey, fetch: fetch as any } as any);
 
 async function run() {
   const prompt = `Search for the official API documentation for "IP Australia Australian Patent Search API". 

@@ -11,6 +11,7 @@ import CompanyLogo from './components/CompanyLogo.tsx';
 import HomeView from './components/HomeView.tsx';
 import Tooltip from './components/Tooltip.tsx';
 import LoginView from './components/LoginView.tsx';
+import ProspectGenerator from "./components/ProspectGenerator";
 import posthog from 'posthog-js';
 
 // Lazy load heavy components to speed up initial boot and prevent workspace timeouts
@@ -918,6 +919,7 @@ function App() {
                            <div className="mt-2 ml-7 flex flex-col gap-1">
                               <button onClick={() => navigateTo('patentAnalytics')} className="w-full text-left text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-2"><PieChart className="w-3 h-3" /> Analytics</button>
                            </div>
+                           <button onClick={() => navigateTo('prospectGenerator')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors mt-4"><UserPlus className="w-4 h-4" /> Prospect Generator</button>
                         </div>
                      </div>
                    </div>
@@ -941,6 +943,7 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
         <Suspense fallback={<ViewLoading />}>
+          {view === 'prospectGenerator' && <ProspectGenerator />}
           {view === 'home' && <HomeView session={session} isGuest={false} onLoginSuccess={() => {}} onGuestAccess={() => {}} onNavigate={(v) => navigateTo(v === 'search' ? 'discovery' : v as any)} />}
           {view === 'about' && <AboutView />}
           {view === 'aboutUs' && <AboutUsView />}
