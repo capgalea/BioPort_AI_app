@@ -28,9 +28,14 @@ app.get("/api/health", (req, res) => {
     hasGeminiKey: !!process.env.GEMINI_API_KEY,
     hasApiKey: !!process.env.API_KEY,
     hasSerpApiKey: !!(process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY),
+    hasIpAuId: !!process.env.IP_AUSTRALIA_CLIENT_ID,
+    hasIpAuSecret: !!process.env.IP_AUSTRALIA_CLIENT_SECRET,
+    ipAuIdLength: process.env.IP_AUSTRALIA_CLIENT_ID ? process.env.IP_AUSTRALIA_CLIENT_ID.length : 0,
+    ipAuSecretLength: process.env.IP_AUSTRALIA_CLIENT_SECRET ? process.env.IP_AUSTRALIA_CLIENT_SECRET.length : 0,
     geminiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : null,
     apiKeyPrefix: process.env.API_KEY ? process.env.API_KEY.substring(0, 5) : null,
-    serpApiKeyPrefix: (process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY) ? (process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY)!.substring(0, 5) : null
+    serpApiKeyPrefix: (process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY) ? (process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY)!.substring(0, 5) : null,
+    ipAuIdPrefix: process.env.IP_AUSTRALIA_CLIENT_ID ? process.env.IP_AUSTRALIA_CLIENT_ID.substring(0, 5) : null
   });
 });
 
@@ -69,13 +74,14 @@ async function getAccessToken() {
   try {
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
-    params.append('client_id', IP_AU_CLIENT_ID);
-    params.append('client_secret', IP_AU_CLIENT_SECRET);
+
+    const auth = Buffer.from(`${IP_AU_CLIENT_ID}:${IP_AU_CLIENT_SECRET}`).toString('base64');
 
     const response = await withExponentialBackoff(() => 
       axios.post(TOKEN_URL, params.toString(), {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `Basic ${auth}`
         },
       })
     );
@@ -94,6 +100,50 @@ async function getAccessToken() {
 
 // API Routes
 import { fetchDetailedPatentsFromIPAustralia } from "./services/geminiService.ts";
+import { fetchPatentBiblio, searchPatents, fetchPublishedDataBiblio } from "./services/epoService.ts";
+
+app.get("/api/patent/:docdbNumber", async (req, res) => {
+  try {
+    const { docdbNumber } = req.params;
+    const data = await fetchPatentBiblio(docdbNumber);
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/patent/:type/:format/:number/biblio", async (req, res) => {
+  try {
+    const { type, format, number } = req.params;
+    const data = await fetchPublishedDataBiblio(type, format, number);
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/patents/search", async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: "Query parameter 'q' is required" });
+    }
+    const data = await searchPatents(q as string);
+    console.log("Backend Search Response Data:", JSON.stringify(data, null, 2));
+    res.json(data);
+  } catch (error: any) {
+    console.error("Full Error:", error);
+    if (error.response) {
+      console.error("EPO API Error Response:", JSON.stringify(error.response.data, null, 2));
+      res.status(error.response.status).json({
+        error: "EPO API Error",
+        details: error.response.data
+      });
+    } else {
+      res.status(500).json({ error: error.message, stack: error.stack });
+    }
+  }
+});
 
 app.post("/api/patents/search", async (req, res) => {
   const { query, filters, source } = req.body;
@@ -132,49 +182,88 @@ app.post("/api/patents/search", async (req, res) => {
   }
 
   try {
-    logDebug("Using Gemini to fetch detailed patents from IP Australia...");
-    const patents = await fetchDetailedPatentsFromIPAustralia(query);
-    logDebug(`Patent search successful, found ${patents.length} results`);
-    res.json({ results: patents });
-  } catch (error: any) {
-    const errorData = error.message || error;
-    logDebug("Patent search error, attempting SerpApi fallback:", errorData);
+    logDebug("Using IP Australia API for patent search...");
+    const token = await getAccessToken();
     
-    // SerpApi Fallback
-    if (SERPAPI_KEY) {
-      try {
-        logDebug("Using SerpApi for patent search fallback...");
-        const serpResponse = await axios.get(SERPAPI_URL, {
-          params: {
-            engine: "google_patents",
-            q: query,
-            api_key: SERPAPI_KEY,
-            num: 10
-          }
-        });
-        
-        const serpResults = serpResponse.data.organic_results || serpResponse.data.results;
-        
-        if (serpResults && Array.isArray(serpResults)) {
-          logDebug(`SerpApi search successful, found ${serpResults.length} results`);
-          // Map SerpApi results to a structure similar to what the app expects
-          const mappedResults = serpResults.map((item: any) => ({
-            applicationNumber: item.publication_number || item.patent_id || "",
-            title: item.title || "",
-            applicants: [item.assignee || item.company || ""],
-            status: "Published",
-            dateFiled: item.filing_date || item.date || "",
-            id: item.publication_number || item.patent_id || ""
-          }));
-          return res.json({ results: mappedResults });
-        } else {
-          logDebug("SerpApi returned no results or unexpected structure", serpResponse.data);
+    const searchBody: any = {
+      query: query
+    };
+    
+    if (filters) {
+      searchBody.filters = filters;
+    }
+
+    logDebug("Sending request to IP Australia API...");
+    const response = await withExponentialBackoff(() => 
+      axios.post(SEARCH_URL, searchBody, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
-      } catch (serpError: any) {
-        logDebug("SerpApi fallback failed:", serpError.message);
+      })
+    );
+    logDebug("IP Australia API request successful");
+
+    const data = response.data;
+    const results = data.results || data.patents || data.items || [];
+    
+    // Quick search returns basic metadata. We need to fetch full details for the top results.
+    const topResults = results.slice(0, 10);
+    const detailedPatents = [];
+
+    logDebug(`Fetching details for ${topResults.length} patents...`);
+    for (const item of topResults) {
+      const appNum = item.applicationNumber || item.id || item.ipRightIdentifier;
+      if (!appNum) continue;
+
+      try {
+        const detailResponse = await withExponentialBackoff(() => 
+          axios.get(`${PATENT_URL}/${appNum}`, {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          })
+        );
+        
+        const detail = detailResponse.data;
+        detailedPatents.push({
+          applicationNumber: detail.applicationNumber || appNum,
+          title: detail.title || detail.inventionTitle || item.title || "",
+          status: detail.status || item.status || "",
+          applicants: detail.applicants || item.applicants || [],
+          owners: detail.owners || item.owners || [],
+          inventors: detail.inventors || item.inventors || [],
+          dateFiled: detail.filingDate || detail.dateFiled || item.filingDate || "",
+          dateGranted: detail.grantDate || detail.dateGranted || item.grantDate || "",
+          abstract: detail.abstract || item.abstract || "",
+          familyJurisdictions: detail.familyJurisdictions || item.familyJurisdictions || [],
+          id: detail.applicationNumber || appNum
+        });
+      } catch (detailError: any) {
+        logDebug(`Failed to fetch details for patent ${appNum}:`, detailError.message);
+        // Fallback to basic metadata
+        detailedPatents.push({
+          applicationNumber: appNum,
+          title: item.title || item.inventionTitle || "",
+          status: item.status || "",
+          applicants: item.applicants || [],
+          owners: item.owners || [],
+          inventors: item.inventors || [],
+          dateFiled: item.filingDate || item.dateFiled || "",
+          dateGranted: item.grantDate || item.dateGranted || "",
+          abstract: item.abstract || "",
+          familyJurisdictions: item.familyJurisdictions || [],
+          id: appNum
+        });
       }
     }
 
+    logDebug(`Patent search successful, found ${detailedPatents.length} results`);
+    res.json({ results: detailedPatents });
+  } catch (error: any) {
+    const errorData = error.response?.data || error.message || error;
+    logDebug("Patent search error, attempting SerpApi fallback:", errorData);
+    
     res.status(500).json({
       error: typeof errorData === 'string' ? errorData : "Failed to retrieve patent data",
       details: errorData
@@ -250,40 +339,85 @@ app.get("/api/test-token", async (req, res) => {
   }
 });
 
-app.get("/api/test-token-env", async (req, res) => {
-  try {
-    const params = new URLSearchParams();
-    params.append('grant_type', 'client_credentials');
-    params.append('client_id', IP_AU_CLIENT_ID || '');
-    params.append('client_secret', IP_AU_CLIENT_SECRET || '');
+app.get("/api/test-token-all", async (req, res) => {
+  const url = TOKEN_URL;
+  const clientId = IP_AU_CLIENT_ID || '';
+  const clientSecret = IP_AU_CLIENT_SECRET || '';
 
-    const response = await axios.post(TOKEN_URL, params.toString(), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
-    });
-    res.json(response.data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.response?.data || error.message });
+  const combinations = [
+    {
+      name: 'grant_type=client_credentials, body credentials, string body',
+      body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' }
+    },
+    {
+      name: 'grant_type=client_credentials, basic auth, string body',
+      body: `grant_type=client_credentials`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`, 'User-Agent': 'Mozilla/5.0' }
+    },
+    {
+      name: 'grant_type=client_credentials, body credentials, scope=read',
+      body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}&scope=read`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' }
+    },
+    {
+      name: 'grant_type=client_credentials, basic auth, scope=read',
+      body: `grant_type=client_credentials&scope=read`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`, 'User-Agent': 'Mozilla/5.0' }
+    },
+    {
+      name: 'grant_type=client_credentials, body credentials, URLSearchParams',
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret }).toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' }
+    },
+    {
+      name: 'grant_type=client_credentials, body credentials, URLSearchParams with scope',
+      body: new URLSearchParams({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret, scope: 'https://api.ipaustralia.gov.au/b2b/iprights/agent' }).toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Mozilla/5.0' }
+    }
+  ];
+
+  const results: any = {};
+  for (let i = 0; i < combinations.length; i++) {
+    const combo = combinations[i];
+    try {
+      const response = await axios.post(url, combo.body, { headers: combo.headers });
+      results[combo.name] = { status: response.status, data: response.data };
+    } catch (e: any) {
+      results[combo.name] = { status: e.response?.status, error: e.response?.data || e.message };
+    }
   }
+  res.json(results);
 });
 
-app.get("/api/test-token-basic", async (req, res) => {
+app.get("/api/test-epo-auth", async (req, res) => {
+  const key = process.env.EPO_CONSUMER_KEY;
+  const secret = process.env.EPO_CONSUMER_SECRET;
+  if (!key || !secret) {
+    return res.status(400).json({ error: "EPO credentials not set in environment" });
+  }
+
+  const credentials = Buffer.from(`${key}:${secret}`).toString('base64');
+  const AUTH_URL = "https://ops.epo.org/3.2/auth/accesstoken";
+
   try {
-    const params = new URLSearchParams();
-    params.append('grant_type', 'client_credentials');
-
-    const auth = Buffer.from(`${IP_AU_CLIENT_ID}:${IP_AU_CLIENT_SECRET}`).toString('base64');
-
-    const response = await axios.post(TOKEN_URL, params.toString(), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${auth}`
+    const response = await axios.post(
+      AUTH_URL,
+      "grant_type=client_credentials",
+      {
+        headers: {
+          "Authorization": `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
       }
-    });
-    res.json(response.data);
+    );
+    res.json({ status: "success", data: response.data });
   } catch (error: any) {
-    res.status(500).json({ error: error.response?.data || error.message });
+    res.status(500).json({ 
+      status: "error", 
+      message: error.message,
+      details: error.response?.data 
+    });
   }
 });
 

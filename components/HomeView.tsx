@@ -83,7 +83,7 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
   return (
     <div className="animate-in fade-in duration-700 bg-white">
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-100 overflow-hidden">
+      <section className="relative pt-10 pb-32 px-4 sm:px-6 lg:px-8 border-b border-slate-100 overflow-hidden">
         {/* Background Decor */}
         <div className="absolute inset-0 z-0 pointer-events-none">
            <div className="absolute -top-[20%] left-[20%] w-[600px] h-[600px] bg-blue-100/50 rounded-full blur-[120px] opacity-60 mix-blend-multiply"></div>
@@ -91,17 +91,6 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
         </div>
 
         <div className="max-w-5xl mx-auto relative z-10 text-center">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-8 animate-in slide-in-from-top-4 duration-700">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-xs font-bold">
-               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-               v2.5 System Online
-            </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-bold">
-               <Cpu className="w-3 h-3" />
-               Gemini 3 Pro Orchestration
-            </div>
-          </div>
-
           <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-6 tracking-tighter leading-[1.1]">
             Accelerate <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Biotech Intelligence.</span>

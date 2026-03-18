@@ -13,7 +13,7 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timescale, setTimescale] = useState<'1y' | '5y' | 'all'>('all');
-  const [source, setSource] = useState<'ip_au' | 'google'>('ip_au');
+  const [source, setSource] = useState<'ip_au' | 'google' | 'epo'>('ip_au');
 
   useEffect(() => {
     const fetchPatents = async () => {
@@ -93,6 +93,12 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName }) => {
             >
               Google
             </button>
+            <button 
+              onClick={() => setSource('epo')}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${source === 'epo' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              EPO
+            </button>
           </div>
           <button 
             onClick={() => setTimescale('1y')}
@@ -130,14 +136,14 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName }) => {
         <div className="h-40 flex flex-col items-center justify-center bg-slate-50 rounded-3xl border border-slate-100 text-slate-400">
           <Loader2 className="w-6 h-6 animate-spin mb-2 text-blue-600" />
           <span className="text-[10px] font-black uppercase tracking-widest">
-            {source === 'ip_au' ? 'Scanning IP Australia...' : 'Searching Google Patents...'}
+            {source === 'ip_au' ? 'Scanning IP Australia...' : source === 'google' ? 'Searching Google Patents...' : 'Searching EPO Patents...'}
           </span>
         </div>
       ) : error ? (
         <div className="h-40 flex flex-col items-center justify-center bg-red-50 rounded-3xl border border-red-100 text-red-600 p-6 text-center">
           <ShieldCheck className="w-6 h-6 mb-2 opacity-50" />
           <span className="text-xs font-bold mb-1">
-            {source === 'ip_au' ? 'IP Australia Connection Issue' : 'Google Patents Search Issue'}
+            {source === 'ip_au' ? 'IP Australia Connection Issue' : source === 'google' ? 'Google Patents Search Issue' : 'EPO Patents Search Issue'}
           </span>
           <span className="text-[10px] font-medium opacity-70">{error}</span>
         </div>
@@ -152,7 +158,7 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName }) => {
             return (
             <a 
               key={idx} 
-              href={patent.source === 'Google Patents' ? googleUrl : (patent.url || `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.appNum ? patent.appNum.replace(/[^0-9]/g, '') : ''}`)}
+              href={patent.source === 'Google Patents' ? googleUrl : (patent.source === 'EPO' ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${patent.appNum ? patent.appNum.replace(/[^a-zA-Z0-9]/g, '') : ''}` : (patent.url || `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.appNum ? patent.appNum.replace(/[^0-9]/g, '') : ''}`))}
               target="_blank"
               rel="noreferrer"
               className="bg-white border border-slate-100 rounded-2xl p-4 hover:border-blue-200 hover:shadow-md transition-all group block"

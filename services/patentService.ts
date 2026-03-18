@@ -1,6 +1,6 @@
 
 import { Patent } from '../types.ts';
-import { fetchPatentsFromIPAustralia, fetchPatentsFromGooglePatents } from './geminiService.ts';
+import { fetchPatentsFromIPAustralia, fetchPatentsFromGooglePatents, fetchPatentsFromEPO } from './geminiService.ts';
 
 /**
  * PatentService handles fetching and processing patent data.
@@ -29,6 +29,19 @@ class PatentService {
       return { google_patents_results: patents };
     } catch (error: any) {
       console.error("Google Patents Search Error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetches patents from EPO via Gemini Search.
+   */
+  async searchEPOPatents(query: string): Promise<any> {
+    try {
+      const patents = await fetchPatentsFromEPO(query);
+      return { epo_patents_results: patents };
+    } catch (error: any) {
+      console.error("EPO Patents Search Error:", error);
       throw error;
     }
   }

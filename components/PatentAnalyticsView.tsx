@@ -7,7 +7,7 @@ import {
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
   Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X
 } from 'lucide-react';
-import { searchIPAustraliaPatents, IPAustraliaPatent, SearchResult } from '../services/ipAustraliaService.ts';
+import { searchEPOPatents, EPOPatent, SearchResult } from '../services/epoAnalyticsService.ts';
 import MultiSelect from './MultiSelect.tsx';
 
 const COLUMNS = [
@@ -32,15 +32,15 @@ const COLUMNS = [
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function PatentAnalyticsView() {
-  const [patents, setPatents] = useState<IPAustraliaPatent[]>([]);
+  const [patents, setPatents] = useState<EPOPatent[]>([]);
   const [isMock, setIsMock] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('biotech');
+  const [searchQuery, setSearchQuery] = useState('Moderna');
   const [applicationNumbers, setApplicationNumbers] = useState('');
   const [applicants, setApplicants] = useState('');
   const [titles, setTitles] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>(['Granted']);
 
   // Table State
   const [visibleColumns, setVisibleColumns] = useState<string[]>(COLUMNS.map(c => c.id));
@@ -53,19 +53,26 @@ export default function PatentAnalyticsView() {
   const [displayLimit, setDisplayLimit] = useState(10);
 
   const fetchPatents = async () => {
+    if (!searchQuery || searchQuery.trim() === '') {
+      setError('Please enter a search query.');
+      return;
+    }
     setLoading(true);
     setError(null);
+    console.log('Fetching patents for query:', searchQuery);
     try {
-      const result: SearchResult = await searchIPAustraliaPatents(searchQuery, { 
+      const result: SearchResult = await searchEPOPatents(searchQuery, { 
         applicationNumbers: applicationNumbers.split(',').map(s => s.trim()).filter(Boolean),
         applicants: applicants.split(',').map(s => s.trim()).filter(Boolean),
         titles: titles.split(',').map(s => s.trim()).filter(Boolean),
         status: statusFilter 
       });
+      console.log('Search result:', result);
       setPatents(result.patents);
       setIsMock(result.isMock);
       setSelectedRows(new Set());
     } catch (err: any) {
+      console.error('Search error:', err);
       setError(err.message || 'Failed to fetch patent data');
     } finally {
       setLoading(false);
@@ -258,14 +265,15 @@ export default function PatentAnalyticsView() {
 
       {/* Search & Filter Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from IP Australia</h3>
+        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from EPO</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (e.g., pa="Pfizer")</label>
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder='Try e.g., pa="Pfizer" or "mRNA"'
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -310,7 +318,7 @@ export default function PatentAnalyticsView() {
           </div>
           <div className="flex items-end gap-2">
             <button 
-              onClick={fetchPatents}
+              onClick={() => { console.log('Search button clicked'); fetchPatents(); }}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2"
             >
               <Search className="w-4 h-4" /> Search
@@ -572,7 +580,7 @@ export default function PatentAnalyticsView() {
                           >
                             {col.id === 'applicationNumber' ? (
                               <a 
-                                href={`https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.applicationNumber.replace(/[^0-9]/g, '')}`}
+                                href={patent.source === 'EPO' ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${patent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}` : `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.applicationNumber.replace(/[^0-9]/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 font-bold hover:underline flex items-center gap-1"

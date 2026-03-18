@@ -464,12 +464,16 @@ export const supabaseService = {
         
         const currentBatchSize = Math.min(batchSize, remaining);
 
+        console.log(`Fetching batch from ${from} to ${from + currentBatchSize - 1}`);
         const { data, error } = await supabase
           .from(TABLE_NAME)
           .select('id, data, last_updated')
           .range(from, from + currentBatchSize - 1);
           
-        if (error) break;
+        if (error) {
+            console.error("Supabase fetch error:", error);
+            break;
+        }
         if (!data || data.length === 0) break;
         
         allRows.push(...data);
@@ -481,6 +485,7 @@ export const supabaseService = {
       
       return allRows.map(row => ({ ...row.data, id: row.id, lastUpdated: row.last_updated }));
     } catch (err) {
+      console.error("Supabase getAllCompanies error:", err);
       if (err instanceof TypeError && err.message.includes('fetch')) isOffline = true;
       return [];
     }

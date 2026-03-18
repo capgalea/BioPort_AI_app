@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type, FunctionDeclaration, Chat, GenerateContentResponse, Part, Tool } from "@google/genai";
+import { searchPatents } from "./epoService.ts";
 import { withExponentialBackoff } from "../src/utils/apiUtils.ts";
 import { CompanyData, ProgressCallback, ResearcherProfile, DrugProfile, PipelineDrug, JobOpportunity, DrugDeepDive, NewsItem, Patent } from "../types.ts";
 import { cacheService } from "./cacheService.ts";
@@ -1113,6 +1114,73 @@ export const fetchPatentsFromGooglePatents = async (query: string): Promise<Pate
   }
 };
 
+export const fetchPatentsFromEPO = async (query: string): Promise<Patent[]> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) throw new Error("API key missing");
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  const prompt = `
+  Search the European Patent Office (EPO) Espacenet for patents related to "${query}".
+  
+  GOAL:
+  Retrieve a list of up to 50 real, verified, recently filed, pending, and current patents.
+  
+  INSTRUCTIONS:
+  1. Use Google Search to find patent records on the EPO Espacenet website (worldwide.espacenet.com).
+  2. IMPORTANT: The "title" MUST exactly match the official "Invention Title" as listed in the EPO registry. 
+     - Do not summarize, truncate, or paraphrase the title.
+     - Do not include prefixes like "Title: " or "Invention Title: ".
+     - Use the exact casing and punctuation found in the registry.
+  3. IMPORTANT: Use the correct EPO Espacenet direct link format: https://worldwide.espacenet.com/patent/search/family/[FAMILY_ID]/publication/[PUBLICATION_ID]?q=[QUERY]
+     Alternatively, a simpler direct link if available, or just the main Espacenet URL with the application number.
+  4. Try to retrieve up to 50 of the most recent patents.
+  5. If no data is found, return an empty array [].
+  6. If the search fails, return an object with an error indicator.
+  7. ZERO HALLUCINATION POLICY: DO NOT invent dummy patents.
+  
+  FORMAT:
+  Return a JSON object with key "patents" containing an array of objects with: appNum, title, applicant, status, filed, url.
+  If there's a system error, include "error": "EPO service unavailable".
+  `;
+  
+  try {
+    const response: GenerateContentResponse = await withExponentialBackoff(() => 
+      ai.models.generateContent({
+        model: "gemini-3-flash-preview", 
+        contents: prompt,
+        config: { 
+          tools: [{ googleSearch: {} }], 
+          temperature: 0.0,
+          thinkingConfig: { thinkingBudget: 0 },
+          responseMimeType: "application/json"
+        },
+      })
+    );
+    const data = extractJson(response.text || "");
+    if (data?.error) {
+       const errorMsg = typeof data.error === 'string' ? data.error : (data.error?.message || JSON.stringify(data.error) || 'Failed to fetch patents');
+       throw new Error(errorMsg);
+    }
+    
+    const patents = (data?.patents || []).map((p: any) => {
+      let cleanUrl = (p.url || '').trim();
+      
+      if (cleanUrl && !cleanUrl.startsWith('http')) {
+        cleanUrl = 'https://' + cleanUrl;
+      }
+      let cleanTitle = (p.title || '').trim();
+      // Remove common prefixes if the model accidentally includes them
+      cleanTitle = cleanTitle.replace(/^(Invention\s+)?Title:\s*/i, '');
+      
+      return { ...p, title: cleanTitle, url: cleanUrl, source: 'EPO' };
+    });
+
+    return patents;
+  } catch (error: any) {
+    console.error("EPO fetch error:", error);
+    throw error;
+  }
+};
+
 export const chatWithAgent = async (
   history: { role: string; content: string }[],
   newMessage: string,
@@ -1371,7 +1439,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
 
 export const intelligentPatentSearch = async (
   query: string,
-  sources: ('ip_au' | 'google')[]
+  sources: ('ip_au' | 'google' | 'epo')[]
 ): Promise<Patent[]> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
   if (!apiKey) throw new Error("API key missing");
@@ -1387,6 +1455,7 @@ export const intelligentPatentSearch = async (
   Please analyze the query and determine the optimal search strings for each database.
   - For 'ip_au' (IP Australia), the search string should be optimized for Google Search grounding (e.g., specific keywords, company names).
   - For 'google' (Google Patents), the search string should be optimized for Google Patents (e.g., using assignee:"Company Name" or specific boolean operators if helpful).
+  - For 'epo' (EPO), the search string should be optimized for EPO OPS API (e.g., specific keywords, company names).
 
   Return a JSON object with the optimized queries.
   `;
@@ -1400,7 +1469,8 @@ export const intelligentPatentSearch = async (
         type: Type.OBJECT,
         properties: {
           ip_au_query: { type: Type.STRING, description: "Optimized query for IP Australia" },
-          google_query: { type: Type.STRING, description: "Optimized query for Google Patents" }
+          google_query: { type: Type.STRING, description: "Optimized query for Google Patents" },
+          epo_query: { type: Type.STRING, description: "Optimized query for EPO" }
         }
       }
     }
@@ -1412,10 +1482,14 @@ export const intelligentPatentSearch = async (
   let rawResults: Patent[] = [];
   const searchPromises: Promise<void>[] = [];
   
+  console.log("Starting patent search for sources:", sources);
+  
   if (sources.includes('ip_au') && parsedQueries.ip_au_query) {
     searchPromises.push((async () => {
       try {
+        console.log("Fetching IP AU patents...");
         const ipAuResults = await fetchPatentsFromIPAustralia(parsedQueries.ip_au_query);
+        console.log("IP AU search successful, found", ipAuResults.length, "results");
         rawResults.push(...ipAuResults.map(p => ({...p, source: 'IP Australia'})));
       } catch (e) {
         console.error("IP AU search failed", e);
@@ -1426,7 +1500,9 @@ export const intelligentPatentSearch = async (
   if (sources.includes('google') && parsedQueries.google_query) {
     searchPromises.push((async () => {
       try {
+        console.log("Fetching Google patents...");
         const googleResults = await fetchPatentsFromGooglePatents(parsedQueries.google_query);
+        console.log("Google Patents search successful, found", googleResults.length, "results");
         rawResults.push(...googleResults.map(p => ({...p, source: 'Google Patents'})));
       } catch (e) {
         console.error("Google Patents search failed", e);
@@ -1434,7 +1510,21 @@ export const intelligentPatentSearch = async (
     })());
   }
 
+  if (sources.includes('epo') && parsedQueries.epo_query) {
+    searchPromises.push((async () => {
+      try {
+        console.log("Fetching EPO patents...");
+        const epoResults = await fetchPatentsFromEPO(parsedQueries.epo_query);
+        console.log("EPO search successful, found", epoResults.length, "results");
+        rawResults.push(...epoResults.map(p => ({...p, source: 'EPO'})));
+      } catch (e) {
+        console.error("EPO search failed", e);
+      }
+    })());
+  }
+
   await Promise.all(searchPromises);
+  console.log("All searches completed. Total results:", rawResults.length);
 
   // Step 3: Check Accuracy (Reviewer Agent)
   if (rawResults.length === 0) return [];

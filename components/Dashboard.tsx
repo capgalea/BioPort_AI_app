@@ -568,7 +568,7 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
               <tbody className="divide-y divide-slate-100">
                 <tr>
                   <td className="px-6 py-4 font-medium text-slate-500">HQ Location</td>
-                  {selectedCompIds.map(id => <td key={id} className="px-6 py-4 text-slate-700">{companies.find(c => c.id === id)?.contact.hqAddress}</td>)}
+                  {selectedCompIds.map(id => <td key={id} className="px-6 py-4 text-slate-700">{companies.find(c => c.id === id)?.contact?.hqAddress}</td>)}
                 </tr>
                 <tr>
                   <td className="px-6 py-4 font-medium text-slate-500">Sector</td>

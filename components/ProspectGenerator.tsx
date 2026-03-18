@@ -366,12 +366,23 @@ export default function ProspectGenerator() {
       setProspects(generated.slice(0, 40));
       setUsedMock(false);
     } catch (err: any) {
-      // Fall back to mock data so the tool is always useful
-      setProspects(MOCK_PROSPECTS);
-      setUsedMock(true);
-      setError(
-        `Live API unavailable (${err.message}) — showing sample prospects. Configure IP_AUSTRALIA_CLIENT_ID & IP_AUSTRALIA_CLIENT_SECRET to use live data.`
-      );
+      setProspects([]);
+      setUsedMock(false);
+      
+      let errorMessage = err.message;
+      if (err.message.includes("401") || err.message.includes("403")) {
+        errorMessage = "Authentication error. Please verify your IP_AUSTRALIA_CLIENT_ID and IP_AUSTRALIA_CLIENT_SECRET in the .env.local file.";
+      } else if (err.message.includes("429")) {
+        errorMessage = "Rate limit exceeded. Please wait 60 seconds and try again.";
+      } else if (err.message.includes("500")) {
+        errorMessage = "IP Australia API error. Please check the IP Australia API status page or contact MDB-TDS@ipaustralia.gov.au.";
+      } else if (err.message === "No patents found") {
+        errorMessage = "Zero results returned from the live IP Australia database. Please try refining your query (e.g., broader keywords, different terminology, or IPC classification codes).";
+      } else {
+        errorMessage = `Live API unavailable (${err.message}). Please verify your IP_AUSTRALIA_CLIENT_ID & IP_AUSTRALIA_CLIENT_SECRET.`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
       setSearchComplete(true);

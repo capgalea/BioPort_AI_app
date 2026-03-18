@@ -513,7 +513,7 @@ function App() {
           setAllCompanies(cached);
         } else if (supabaseService.isConfigured()) {
           const cloudData = await supabaseService.getAllCompanies(INITIAL_LOAD_COUNT);
-          if (cloudData.length > 0) {
+          if (cloudData && cloudData.length > 0) {
             const sanitized = cloudData.map(sanitizeCompanyData);
             await cacheService.saveBatchCompanies(sanitized, "Global");
             setAllCompanies(sanitized);
@@ -758,7 +758,7 @@ function App() {
     try {
       const totalCount = await supabaseService.getRecordCount();
       const cloudData = await supabaseService.getAllCompanies(totalCount || 10000);
-      if (cloudData.length > 0) {
+      if (cloudData && cloudData.length > 0) {
         const sanitized = cloudData.map(sanitizeCompanyData);
         await cacheService.saveBatchCompanies(sanitized, "Global");
         setAllCompanies(sanitized);
@@ -921,6 +921,18 @@ function App() {
                            </div>
                            <button onClick={() => navigateTo('prospectGenerator')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors mt-4"><UserPlus className="w-4 h-4" /> Prospect Generator</button>
                         </div>
+                     </div>
+                   </div>
+                   
+                   <div className="relative group/biotech">
+                     <button className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:bg-slate-50`}>
+                       <Microscope className="w-4 h-4" /> <span className="hidden lg:inline">Biotech Search</span> <ChevronDown className="w-3 h-3 opacity-50" />
+                     </button>
+                     <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 invisible group-hover/biotech:visible opacity-0 group-hover/biotech:opacity-100 transition-all z-50">
+                       <a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="noopener noreferrer" className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><BookOpen className="w-4 h-4" /> PubMed</a>
+                       <a href="https://clinicaltrials.gov/" target="_blank" rel="noopener noreferrer" className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Calendar className="w-4 h-4" /> ClinicalTrials.gov</a>
+                       <a href="https://pubchem.ncbi.nlm.nih.gov/" target="_blank" rel="noopener noreferrer" className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Dna className="w-4 h-4" /> PubChem</a>
+                       <a href="https://openalex.org/" target="_blank" rel="noopener noreferrer" className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Search className="w-4 h-4" /> OpenAlex</a>
                      </div>
                    </div>
                    <button onClick={() => navigateTo('agent')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${view === 'agent' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><Bot className="w-4 h-4" /> <span className="hidden lg:inline">AI Agent</span></button>

@@ -28,6 +28,48 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.js" defer></script>
     <script>
+      // Debugging
+      try {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+        console.log('Descriptor of fetch:', descriptor);
+        const errorDisplay = document.getElementById('error-display');
+        if (errorDisplay) {
+            errorDisplay.style.display = 'block';
+            errorDisplay.textContent = 'Descriptor: ' + JSON.stringify(descriptor);
+        }
+      } catch (e) {
+        console.error('Error debugging fetch:', e);
+      }
+      
+      // Make fetch writable by redefining it on the window instance
+      try {
+        const target = window;
+        let descriptor = Object.getOwnPropertyDescriptor(target, 'fetch');
+        if (!descriptor) {
+          descriptor = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+        }
+        
+        if (descriptor && descriptor.get) {
+          Object.defineProperty(target, 'fetch', {
+            get: descriptor.get,
+            set: function(val) {
+              // Allow the polyfill to overwrite it if it's a function
+              if (typeof val === 'function') {
+                Object.defineProperty(this, 'fetch', {
+                  value: val,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            },
+            configurable: true
+          });
+        }
+      } catch (e) {
+        console.warn('Could not make fetch writable', e);
+      }
+      
       window.addEventListener('error', function(event) {
         const errorDisplay = document.getElementById('error-display');
         if (errorDisplay) { errorDisplay.style.display = 'block'; errorDisplay.textContent = 'Runtime Error: ' + event.message; }

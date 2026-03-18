@@ -11,7 +11,7 @@ const PatentsView: React.FC = () => {
   const [query, setQuery] = useState('');
   const [lastSearchedQuery, setLastSearchedQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [searchSource, setSearchSource] = useState<'ip_au' | 'google' | 'both'>('ip_au');
+  const [searchSource, setSearchSource] = useState<'ip_au' | 'google' | 'epo' | 'both'>('ip_au');
   const [hasSearched, setHasSearched] = useState(false);
 
   const fetchPatents = async (searchQuery: string) => {
@@ -20,7 +20,12 @@ const PatentsView: React.FC = () => {
     setError(null);
     setLastSearchedQuery(searchQuery);
     try {
-      const sources = searchSource === 'both' ? ['ip_au', 'google'] as ('ip_au' | 'google')[] : [searchSource];
+      let sources: ('ip_au' | 'google' | 'epo')[];
+      if (searchSource === 'both') {
+        sources = ['ip_au', 'google', 'epo'];
+      } else {
+        sources = [searchSource as ('ip_au' | 'google' | 'epo')];
+      }
       const data = await intelligentPatentSearch(searchQuery, sources);
       setPatents(data);
     } catch (err: any) {
@@ -99,10 +104,16 @@ const PatentsView: React.FC = () => {
             Google Patents (Global)
           </button>
           <button 
+            onClick={() => setSearchSource('epo')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${searchSource === 'epo' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+          >
+            EPO (European)
+          </button>
+          <button 
             onClick={() => setSearchSource('both')}
             className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${searchSource === 'both' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
           >
-            Both Sources
+            All Sources
           </button>
         </div>
         <form onSubmit={handleSearch} className="flex gap-3">
@@ -197,7 +208,7 @@ const PatentsView: React.FC = () => {
             return (
             <a 
               key={idx} 
-              href={patent.source === 'Google Patents' ? googleUrl : (patent.url || `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.appNum ? patent.appNum.replace(/[^0-9]/g, '') : ''}`)}
+              href={patent.source === 'Google Patents' ? googleUrl : (patent.source === 'EPO' ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${patent.appNum ? patent.appNum.replace(/[^a-zA-Z0-9]/g, '') : ''}` : (patent.url || `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.appNum ? patent.appNum.replace(/[^0-9]/g, '') : ''}`))}
               target="_blank"
               rel="noreferrer"
               className="bg-white rounded-3xl border border-slate-200 p-6 hover:shadow-xl transition-all group cursor-pointer block"
