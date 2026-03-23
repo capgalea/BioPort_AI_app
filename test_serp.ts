@@ -1,12 +1,18 @@
-import axios from 'axios';
+import axios from "axios";
+import dotenv from "dotenv";
+dotenv.config();
 
 async function test() {
   try {
-    const response = await axios.get('http://localhost:3000/api/test-serp');
-    console.log(JSON.stringify(response.data, null, 2));
+    const res = await axios.get('https://serpapi.com/search.json', {
+      params: {
+        q: "PatentsView API v1 documentation endpoints fields",
+        api_key: process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY
+      }
+    });
+    console.log(res.data.organic_results.slice(0, 3).map((r: any) => r.snippet).join('\n\n'));
   } catch (e: any) {
-    console.error(e.response?.data || e.message);
+    console.error(e.message);
   }
 }
-
 test();

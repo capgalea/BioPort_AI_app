@@ -7,8 +7,8 @@ import {
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
   Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X
 } from 'lucide-react';
-import { searchEPOPatents, EPOPatent, SearchResult } from '../services/epoAnalyticsService.ts';
-import MultiSelect from './MultiSelect.tsx';
+import { Patent } from '../types';
+import { patentService } from '../services/patentService';
 
 const COLUMNS = [
   { id: 'applicationNumber', label: 'Application Number' },
@@ -32,15 +32,10 @@ const COLUMNS = [
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
 export default function PatentAnalyticsView() {
-  const [patents, setPatents] = useState<EPOPatent[]>([]);
-  const [isMock, setIsMock] = useState(false);
+  const [patents, setPatents] = useState<Patent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('Moderna');
-  const [applicationNumbers, setApplicationNumbers] = useState('');
-  const [applicants, setApplicants] = useState('');
-  const [titles, setTitles] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string[]>(['Granted']);
+  const [searchQuery, setSearchQuery] = useState('biotech');
 
   // Table State
   const [visibleColumns, setVisibleColumns] = useState<string[]>(COLUMNS.map(c => c.id));
@@ -53,26 +48,13 @@ export default function PatentAnalyticsView() {
   const [displayLimit, setDisplayLimit] = useState(10);
 
   const fetchPatents = async () => {
-    if (!searchQuery || searchQuery.trim() === '') {
-      setError('Please enter a search query.');
-      return;
-    }
     setLoading(true);
     setError(null);
-    console.log('Fetching patents for query:', searchQuery);
     try {
-      const result: SearchResult = await searchEPOPatents(searchQuery, { 
-        applicationNumbers: applicationNumbers.split(',').map(s => s.trim()).filter(Boolean),
-        applicants: applicants.split(',').map(s => s.trim()).filter(Boolean),
-        titles: titles.split(',').map(s => s.trim()).filter(Boolean),
-        status: statusFilter 
-      });
-      console.log('Search result:', result);
-      setPatents(result.patents);
-      setIsMock(result.isMock);
+      const result = await patentService.getPatents(searchQuery);
+      setPatents(result);
       setSelectedRows(new Set());
     } catch (err: any) {
-      console.error('Search error:', err);
       setError(err.message || 'Failed to fetch patent data');
     } finally {
       setLoading(false);
@@ -257,68 +239,28 @@ export default function PatentAnalyticsView() {
             Analyze patent landscapes, filter records, and export data.
           </p>
         </div>
-        <div className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 ${isMock ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-          <div className={`w-2 h-2 rounded-full ${isMock ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-          {isMock ? 'API Disconnected (Mock Data)' : 'API Connected'}
+        <div className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 bg-emerald-100 text-emerald-800`}>
+          <div className={`w-2 h-2 rounded-full bg-emerald-500`} />
+          API Connected
         </div>
       </div>
 
       {/* Search & Filter Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from EPO</h3>
+        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from USPTO</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (e.g., pa="Pfizer")</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query</label>
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder='Try e.g., pa="Pfizer" or "mRNA"'
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Application Numbers (comma separated)</label>
-            <input 
-              type="text" 
-              value={applicationNumbers}
-              onChange={(e) => setApplicationNumbers(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Applicants (comma separated)</label>
-            <input 
-              type="text" 
-              value={applicants}
-              onChange={(e) => setApplicants(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titles (comma separated)</label>
-            <input 
-              type="text" 
-              value={titles}
-              onChange={(e) => setTitles(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
-          </div>
-          <div className="flex items-end">
-            <MultiSelect 
-              label="Status"
-              options={[
-                { id: 'Granted', label: 'Granted' },
-                { id: 'Published', label: 'Published' },
-                { id: 'Under Examination', label: 'Under Examination' }
-              ]}
-              selectedIds={statusFilter}
-              onChange={setStatusFilter}
             />
           </div>
           <div className="flex items-end gap-2">
             <button 
-              onClick={() => { console.log('Search button clicked'); fetchPatents(); }}
+              onClick={fetchPatents}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2"
             >
               <Search className="w-4 h-4" /> Search
@@ -326,10 +268,6 @@ export default function PatentAnalyticsView() {
             <button 
               onClick={() => {
                 setSearchQuery('biotech');
-                setApplicationNumbers('');
-                setApplicants('');
-                setTitles('');
-                setStatusFilter([]);
                 fetchPatents();
               }}
               className="px-6 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 flex items-center gap-2"
@@ -580,7 +518,7 @@ export default function PatentAnalyticsView() {
                           >
                             {col.id === 'applicationNumber' ? (
                               <a 
-                                href={patent.source === 'EPO' ? `https://worldwide.espacenet.com/patent/search?q=pn%3D${patent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}` : `https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.applicationNumber.replace(/[^0-9]/g, '')}`}
+                                href={`https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.applicationNumber.replace(/[^0-9]/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 font-bold hover:underline flex items-center gap-1"

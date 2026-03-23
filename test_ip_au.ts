@@ -3,7 +3,7 @@ import axios from 'axios';
 async function test() {
   const clientId = 'fpqOC1vyzVb7LCX89VTEAl1zzhjZE63Q';
   const clientSecret = 'n9LmCJ3KpHuLvU6yfPQYRbTBm4G4A46hMedKke8BiNwjLgeNapkA4BjIqSplZkZm';
-  const url = 'https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token';
+  const url = 'https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token';
 
   const combinations = [
     {

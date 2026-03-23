@@ -39,6 +39,8 @@ const ResultsTable = lazy(() => import('./components/ResultsTable'));
 const NewsFeed = lazy(() => import('./components/NewsFeed'));
 const PatentsView = lazy(() => import('./components/PatentsView'));
 const PatentAnalyticsView = lazy(() => import('./components/PatentAnalyticsView'));
+const PatentSearchPage = lazy(() => import('./components/PatentSearchPage'));
+const PatentSearchAgent = lazy(() => import('./components/PatentSearchAgent'));
 
 const slugify = (text: string): string => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
@@ -916,6 +918,7 @@ function App() {
                         <div className="px-4 py-2">
                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Patents</div>
                            <button onClick={() => navigateTo('patents')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><FileText className="w-4 h-4" /> Search</button>
+                           <button onClick={() => navigateTo('patentSearchAgent')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><Bot className="w-4 h-4" /> Patent Search Agent</button>
                            <div className="mt-2 ml-7 flex flex-col gap-1">
                               <button onClick={() => navigateTo('patentAnalytics')} className="w-full text-left text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-2"><PieChart className="w-3 h-3" /> Analytics</button>
                            </div>
@@ -1127,6 +1130,8 @@ function App() {
           )}
           {view === 'patents' && <PatentsView />}
           {view === 'patentAnalytics' && <PatentAnalyticsView />}
+          {view === 'patentSearch' && <PatentSearchPage />}
+          {view === 'patentSearchAgent' && <PatentSearchAgent />}
           {view === 'employment' && <EmploymentView />}
           {view === 'systemInfo' && <SystemInfoView />}
           {view === 'howToNavigate' && <SystemTutorialView onStartSearch={() => setView('discovery')} />}

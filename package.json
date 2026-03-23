@@ -11,11 +11,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.31.0",
+    "@google/genai": "^1.46.0",
     "@posthog/react": "^1.8.2",
     "@supabase/supabase-js": "2.39.3",
     "axios": "^1.13.5",
     "base-64": "^1.0.0",
+    "clsx": "^2.1.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -27,7 +28,9 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-force-graph-2d": "1.25.4",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.7.0",
+    "tailwind-merge": "^3.5.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {

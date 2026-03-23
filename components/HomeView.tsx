@@ -1,9 +1,51 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Dna, ArrowRight, ShieldCheck, Zap, 
-  Search, Sparkles, Briefcase, Bot, Lock, UserPlus, Shield, Workflow, Cpu, Map as MapIcon, FileText, Globe, PieChart, Pill
+  Search, Sparkles, Briefcase, Bot, Lock, UserPlus, Shield, Workflow, Cpu, Map as MapIcon, FileText, Globe, PieChart, Pill, Activity, AlertTriangle, CheckCircle2, Loader2
 } from 'lucide-react';
+import { checkGeminiHealth } from '../services/geminiService';
+
+const GeminiStatusIndicator = () => {
+  const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      const isHealthy = await checkGeminiHealth();
+      setStatus(isHealthy ? 'online' : 'offline');
+    };
+    checkStatus();
+    // Optional: check periodically every 5 minutes
+    const interval = setInterval(checkStatus, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm mb-8">
+      {status === 'checking' && (
+        <>
+          <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Checking Gemini API...</span>
+        </>
+      )}
+      {status === 'online' && (
+        <>
+          <div className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </div>
+          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Gemini API Online</span>
+        </>
+      )}
+      {status === 'offline' && (
+        <>
+          <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+          <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest">Gemini API Offline / Quota Exceeded</span>
+        </>
+      )}
+    </div>
+  );
+};
 
 interface HomeViewProps {
   session: any;
@@ -91,6 +133,7 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
         </div>
 
         <div className="max-w-5xl mx-auto relative z-10 text-center">
+          <GeminiStatusIndicator />
           <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-6 tracking-tighter leading-[1.1]">
             Accelerate <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Biotech Intelligence.</span>

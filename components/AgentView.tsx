@@ -39,6 +39,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
   const [academicFocus, setAcademicFocus] = useState(false);
   const [useDatabase, setUseDatabase] = useState(false);
   const [usePatentSearch, setUsePatentSearch] = useState(false);
+  const [useUSPatentSearch, setUseUSPatentSearch] = useState(false);
   
   // Persistent Chat Session Ref
   const chatInstanceRef = useRef<any>(null);
@@ -93,7 +94,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
     setMessages([
       { 
         role: 'model', 
-        content: "Hello! I'm the BioPort AI Agent. I can help you analyze your data, search for academic literature, retrieve Australian patent data from IP Australia, or generate comprehensive disease reviews. How can I assist you today?",
+        content: "Hello! I'm the BioPort AI Agent. I can help you analyze your data, search for academic literature, retrieve patent data from USPTO and IP Australia, or generate comprehensive disease reviews. How can I assist you today?",
         timestamp: Date.now()
       }
     ]);
@@ -176,7 +177,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
       }
 
       // Context Caching Logic: If context or key settings changed, reset the chat instance
-      const currentContextHash = `${selectedModel}-${useGoogleSearch}-${academicFocus}-${usePatentSearch}-${contextData}`;
+      const currentContextHash = `${selectedModel}-${useGoogleSearch}-${academicFocus}-${usePatentSearch}-${useUSPatentSearch}-${contextData}`;
       if (currentContextHash !== lastContextHashRef.current) {
         chatInstanceRef.current = null;
         lastContextHashRef.current = currentContextHash;
@@ -198,6 +199,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
             useAACT: true, 
             useBioMCP: true,
             usePatentSearch,
+            useUSPatentSearch,
             contextData
           },
           chatInstanceRef.current
@@ -460,7 +462,25 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
                     }} 
                   />
                 </div>
-                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Patent Intelligence (IP Australia)</span>
+                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Patent Intelligence (USPTO & IP Australia)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useUSPatentSearch ? 'bg-blue-500' : 'bg-slate-200'}`}>
+                  <div className={`bg-white w-4 h-4 rounded-full shadow-sm transition-transform ${useUSPatentSearch ? 'translate-x-4' : 'translate-x-0'}`} />
+                  <input 
+                    type="checkbox" 
+                    className="hidden" 
+                    checked={useUSPatentSearch} 
+                    onChange={(e) => {
+                      const isChecked = e.target.checked;
+                      setUseUSPatentSearch(isChecked);
+                      if (isChecked) {
+                        setSelectedModel('gemini-3-pro-preview');
+                      }
+                    }} 
+                  />
+                </div>
+                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> US Patent Intelligence (PatentsView)</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useDatabase ? 'bg-emerald-600' : 'bg-slate-200'}`}>

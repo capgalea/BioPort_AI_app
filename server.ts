@@ -30,6 +30,8 @@ app.get("/api/health", (req, res) => {
     hasSerpApiKey: !!(process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY),
     hasIpAuId: !!process.env.IP_AUSTRALIA_CLIENT_ID,
     hasIpAuSecret: !!process.env.IP_AUSTRALIA_CLIENT_SECRET,
+    hasPatentsViewKey: !!process.env.PATENTSVIEW_API_KEY,
+    hasUSPTOKey: !!process.env.USPTO_API_KEY,
     ipAuIdLength: process.env.IP_AUSTRALIA_CLIENT_ID ? process.env.IP_AUSTRALIA_CLIENT_ID.length : 0,
     ipAuSecretLength: process.env.IP_AUSTRALIA_CLIENT_SECRET ? process.env.IP_AUSTRALIA_CLIENT_SECRET.length : 0,
     geminiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : null,
@@ -47,6 +49,13 @@ const SEARCH_URL = "https://production.api.ipaustralia.gov.au/public/australian-
 const PATENT_URL = "https://production.api.ipaustralia.gov.au/public/australian-patent-search-api/v1/patent";
 const SERPAPI_KEY = process.env.SERPAPI_API_KEY || process.env.SERPAPI_KEY;
 const SERPAPI_URL = "https://serpapi.com/search.json";
+
+// ─── USPTO MCP Server Proxy Endpoints ─────────────────────────────────────────
+const USPTO_MCP_BASE = process.env.USPTO_MCP_URL || 'http://localhost:8000';
+const PATENTSVIEW_API_KEY = process.env.PATENTSVIEW_API_KEY;
+const PATENTSVIEW_BASE_URL = 'https://search.patentsview.org/api/v1';
+
+console.log("PATENTSVIEW_API_KEY set:", !!PATENTSVIEW_API_KEY);
 
 let accessToken: string | null = null;
 let tokenExpiry: number = 0;
@@ -100,50 +109,6 @@ async function getAccessToken() {
 
 // API Routes
 import { fetchDetailedPatentsFromIPAustralia } from "./services/geminiService.ts";
-import { fetchPatentBiblio, searchPatents, fetchPublishedDataBiblio } from "./services/epoService.ts";
-
-app.get("/api/patent/:docdbNumber", async (req, res) => {
-  try {
-    const { docdbNumber } = req.params;
-    const data = await fetchPatentBiblio(docdbNumber);
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/patent/:type/:format/:number/biblio", async (req, res) => {
-  try {
-    const { type, format, number } = req.params;
-    const data = await fetchPublishedDataBiblio(type, format, number);
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/patents/search", async (req, res) => {
-  try {
-    const { q } = req.query;
-    if (!q) {
-      return res.status(400).json({ error: "Query parameter 'q' is required" });
-    }
-    const data = await searchPatents(q as string);
-    console.log("Backend Search Response Data:", JSON.stringify(data, null, 2));
-    res.json(data);
-  } catch (error: any) {
-    console.error("Full Error:", error);
-    if (error.response) {
-      console.error("EPO API Error Response:", JSON.stringify(error.response.data, null, 2));
-      res.status(error.response.status).json({
-        error: "EPO API Error",
-        details: error.response.data
-      });
-    } else {
-      res.status(500).json({ error: error.message, stack: error.stack });
-    }
-  }
-});
 
 app.post("/api/patents/search", async (req, res) => {
   const { query, filters, source } = req.body;
@@ -420,6 +385,15 @@ app.get("/api/test-epo-auth", async (req, res) => {
     });
   }
 });
+
+// USPTO search route removed
+
+
+// USPTO analytics search route removed
+
+
+// USPTO status route removed
+
 
 app.get("/api/ask-gemini", async (req, res) => {
   try {

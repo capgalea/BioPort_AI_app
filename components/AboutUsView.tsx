@@ -165,7 +165,7 @@ const AboutUsView: React.FC = () => {
 
 const ExpertiseTag = ({ icon, label }: { icon: React.ReactNode, label: string }) => (
   <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 flex items-center gap-2">
-    {React.cloneElement(icon as React.ReactElement, { className: 'w-3 h-3' })}
+    {React.cloneElement(icon as React.ReactElement<any>, { className: 'w-3 h-3' })}
     {label}
   </div>
 );

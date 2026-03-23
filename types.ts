@@ -219,11 +219,22 @@ export function getEntityCategory(c: CompanyData): string {
 }
 
 export interface Patent {
-  appNum: string;
+  applicationNumber: string;
+  owners: string[];
+  applicants: string[];
+  inventors: string[];
   title: string;
-  applicant: string;
+  abstract: string;
+  claim: string;
+  description: string;
   status: string;
-  filed: string;
+  family: string;
+  familyJurisdictions: string[];
+  dateFiled: string;
+  datePublished: string;
+  earliestPriorityDate: string;
+  dateGranted: string;
+  citedWork: string[];
   url?: string;
   source?: string;
 }

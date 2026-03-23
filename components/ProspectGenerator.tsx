@@ -63,29 +63,32 @@ const SEGMENT_META: Record<
 const UNIVERSITY_KEYWORDS = [
   "university",
   "univ",
+  "mit",
+  "stanford",
+  "harvard",
+  "caltech",
+  "berkeley",
+  "yale",
+  "princeton",
+  "columbia",
+  "johns hopkins",
+  "upenn",
+  "cornell",
   "monash",
-  "deakin",
-  "griffith",
-  "swinburne",
-  "rmit",
-  "flinders",
-  "curtin",
-  "murdoch",
   "melbourne",
 ];
 const CRC_KEYWORDS = [
+  "nih",
+  "mayo clinic",
+  "cleveland clinic",
+  "dana-farber",
+  "memorial sloan kettering",
   "csiro",
   "crc",
   "walter",
   "eliza",
   "garvan",
   "wehi",
-  "baker",
-  "hudson",
-  "peter mac",
-  "qimr",
-  "sahmri",
-  "telethon",
 ];
 const STARTUP_KEYWORDS = [
   "pty",
@@ -98,6 +101,10 @@ const STARTUP_KEYWORDS = [
   "pharma",
   "genomics",
   "diagnostics",
+  "moderna",
+  "pfizer",
+  "amgen",
+  "genentech",
 ];
 
 function classifyApplicant(name: string): Prospect["segment"] {
@@ -140,18 +147,14 @@ function buildLinkedInQuery(name: string, institution: string): string {
 
 function guessEmailHint(institution: string): string {
   const lower = institution.toLowerCase();
+  if (lower.includes("mit")) return "@mit.edu";
+  if (lower.includes("stanford")) return "@stanford.edu";
+  if (lower.includes("harvard")) return "@harvard.edu";
+  if (lower.includes("nih")) return "@nih.gov";
   if (lower.includes("csiro")) return "@csiro.au";
   if (lower.includes("monash")) return "@monash.edu";
   if (lower.includes("melbourne") || lower.includes("unimelb"))
     return "@unimelb.edu.au";
-  if (lower.includes("sydney") || lower.includes("usyd"))
-    return "@sydney.edu.au";
-  if (lower.includes("unsw")) return "@unsw.edu.au";
-  if (lower.includes("queensland") || lower.includes("uq")) return "@uq.edu.au";
-  if (lower.includes("western australia") || lower.includes("uwa"))
-    return "@uwa.edu.au";
-  if (lower.includes("adelaide")) return "@adelaide.edu.au";
-  if (lower.includes("anu")) return "@anu.edu.au";
   return "@[institution domain]";
 }
 
@@ -226,89 +229,47 @@ function patentsToProspects(patents: Patent[]): Prospect[] {
 const MOCK_PROSPECTS: Prospect[] = [
   {
     id: "1",
-    name: "University of Melbourne",
-    institution: "University of Melbourne",
+    name: "Massachusetts Institute of Technology",
+    institution: "MIT",
     role: "Technology Transfer / Commercialisation Manager",
     segment: "TTO",
-    patentCount: 8,
+    patentCount: 15,
     recentPatents: [
-      { title: "CRISPR-based gene editing for therapeutic applications", appNum: "2023901234", filed: "2023-03-15" },
-      { title: "Novel mRNA delivery nanoparticle formulation", appNum: "2023901456", filed: "2023-06-22" },
+      { title: "CRISPR-based gene editing for therapeutic applications", appNum: "11000001", filed: "2023-03-15" },
+      { title: "Novel mRNA delivery nanoparticle formulation", appNum: "11000002", filed: "2023-06-22" },
     ],
-    linkedInQuery: buildLinkedInQuery("Technology Transfer Manager", "University of Melbourne"),
-    emailHint: "@unimelb.edu.au",
-    score: 9,
+    linkedInQuery: buildLinkedInQuery("Technology Transfer Manager", "MIT"),
+    emailHint: "@mit.edu",
+    score: 10,
   },
   {
     id: "2",
-    name: "CSIRO",
-    institution: "CSIRO",
+    name: "National Institutes of Health",
+    institution: "NIH",
     role: "Principal Research Scientist",
     segment: "CRC/MRI",
-    patentCount: 12,
+    patentCount: 22,
     recentPatents: [
-      { title: "Synthetic biology platform for biomanufacturing", appNum: "2022905678", filed: "2022-11-08" },
-      { title: "AI-driven protein structure prediction pipeline", appNum: "2023902345", filed: "2023-01-30" },
+      { title: "Synthetic biology platform for biomanufacturing", appNum: "11000003", filed: "2022-11-08" },
+      { title: "AI-driven protein structure prediction pipeline", appNum: "11000004", filed: "2023-01-30" },
     ],
-    linkedInQuery: buildLinkedInQuery("Research Scientist", "CSIRO"),
-    emailHint: "@csiro.au",
+    linkedInQuery: buildLinkedInQuery("Research Scientist", "NIH"),
+    emailHint: "@nih.gov",
     score: 10,
   },
   {
     id: "3",
-    name: "Parabilis Therapeutics Pty Ltd",
-    institution: "Parabilis Therapeutics Pty Ltd",
+    name: "ModernaTX, Inc.",
+    institution: "ModernaTX, Inc.",
     role: "Founder / Chief Scientific Officer",
     segment: "Startup",
-    patentCount: 3,
+    patentCount: 12,
     recentPatents: [
-      { title: "Bispecific antibody targeting tumour microenvironment", appNum: "2023903210", filed: "2023-07-14" },
+      { title: "Bispecific antibody targeting tumour microenvironment", appNum: "11000005", filed: "2023-07-14" },
     ],
-    linkedInQuery: buildLinkedInQuery("CSO Founder", "Parabilis Therapeutics"),
-    emailHint: "@[institution domain]",
-    score: 8,
-  },
-  {
-    id: "4",
-    name: "Monash University",
-    institution: "Monash University",
-    role: "Technology Transfer / Commercialisation Manager",
-    segment: "TTO",
-    patentCount: 6,
-    recentPatents: [
-      { title: "Lipid nanoparticle vaccine adjuvant system", appNum: "2022906789", filed: "2022-09-03" },
-    ],
-    linkedInQuery: buildLinkedInQuery("Commercialisation Manager", "Monash University"),
-    emailHint: "@monash.edu",
+    linkedInQuery: buildLinkedInQuery("CSO Founder", "Moderna"),
+    emailHint: "@modernatx.com",
     score: 9,
-  },
-  {
-    id: "5",
-    name: "Garvan Institute of Medical Research",
-    institution: "Garvan Institute of Medical Research",
-    role: "Principal Research Scientist",
-    segment: "CRC/MRI",
-    patentCount: 5,
-    recentPatents: [
-      { title: "Epigenetic biomarkers for early cancer detection", appNum: "2023904321", filed: "2023-04-18" },
-    ],
-    linkedInQuery: buildLinkedInQuery("Research Scientist", "Garvan Institute"),
-    emailHint: "@garvan.org.au",
-    score: 8,
-  },
-  {
-    id: "6",
-    name: "Nexagen Biosciences Pty Ltd",
-    institution: "Nexagen Biosciences Pty Ltd",
-    role: "Founder / Chief Scientific Officer",
-    segment: "Startup",
-    patentCount: 2,
-    recentPatents: [
-      { title: "Point-of-care microfluidic diagnostic device", appNum: "2023905432", filed: "2023-08-25" },
-    ],
-    linkedInQuery: buildLinkedInQuery("CEO Founder Biosciences", "Nexagen"),
-    emailHint: "@[institution domain]",
-    score: 7,
   },
 ];
 
@@ -353,7 +314,7 @@ export default function ProspectGenerator() {
       const response = await fetch("/api/patents/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: effectiveQuery, source: "ip_au" }),
+        body: JSON.stringify({ query: effectiveQuery, source: "patentsview" }),
       });
 
       if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -371,15 +332,15 @@ export default function ProspectGenerator() {
       
       let errorMessage = err.message;
       if (err.message.includes("401") || err.message.includes("403")) {
-        errorMessage = "Authentication error. Please verify your IP_AUSTRALIA_CLIENT_ID and IP_AUSTRALIA_CLIENT_SECRET in the .env.local file.";
+        errorMessage = "Authentication error. Please verify your PATENTSVIEW_API_KEY in the .env file.";
       } else if (err.message.includes("429")) {
         errorMessage = "Rate limit exceeded. Please wait 60 seconds and try again.";
       } else if (err.message.includes("500")) {
-        errorMessage = "IP Australia API error. Please check the IP Australia API status page or contact MDB-TDS@ipaustralia.gov.au.";
+        errorMessage = "PatentsView API error. Please check the PatentsView API status page.";
       } else if (err.message === "No patents found") {
-        errorMessage = "Zero results returned from the live IP Australia database. Please try refining your query (e.g., broader keywords, different terminology, or IPC classification codes).";
+        errorMessage = "Zero results returned from the live PatentsView database. Please try refining your query.";
       } else {
-        errorMessage = `Live API unavailable (${err.message}). Please verify your IP_AUSTRALIA_CLIENT_ID & IP_AUSTRALIA_CLIENT_SECRET.`;
+        errorMessage = `Live API unavailable (${err.message}). Please verify your PATENTSVIEW_API_KEY.`;
       }
       
       setError(errorMessage);
@@ -511,7 +472,7 @@ I'd love your input as an early user. Would a brief call work for you?
             <span className="text-xs font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Prospect Engine</span>
           </div>
           <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
-            Mine IP Australia patent filings to surface researchers, TTO staff,
+            Mine USPTO PatentsView filings to surface researchers, TTO staff,
             and startup founders for your beta outreach.
           </p>
         </div>
@@ -742,7 +703,7 @@ I'd love your input as an early user. Would a brief call work for you?
           <div className="text-6xl text-blue-200 mb-6">⬡</div>
           <div className="text-sm text-slate-500 leading-relaxed">
             Select a technology domain and click{" "}
-            <strong className="text-slate-900">Find Prospects</strong> to mine IP Australia patent filings
+            <strong className="text-slate-900">Find Prospects</strong> to mine USPTO PatentsView filings
             for potential BioPort users.
           </div>
         </div>
