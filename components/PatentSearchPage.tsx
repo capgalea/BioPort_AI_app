@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
-import { GoogleGenAI, Type } from '@google/genai';
+import axios from 'axios';
 
 const DATABASES = {
   ip_australia: 'IP Australia (AusPat)',
@@ -13,7 +13,7 @@ const DATABASES = {
 
 const PatentSearchPage: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [selectedDbs, setSelectedDbs] = useState<string[]>(['ip_australia', 'epo']);
+  const [selectedDbs, setSelectedDbs] = useState<string[]>(['uspto']);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,45 +30,51 @@ const PatentSearchPage: React.FC = () => {
     setResults(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-      
-      const dbNames = selectedDbs.map(id => DATABASES[id as keyof typeof DATABASES]).join(', ');
-      
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Search query: "${query}"`,
-        config: {
-          systemInstruction: `You are a biotech patent search AI agent. The user has queried the following patent databases: ${dbNames}.
-          Simulate realistic patent search results.
-          Return ONLY valid JSON with this exact structure:
-          {
-            "analysis": "AI analysis covering key findings, technology trends, notable assignees, and strategic insights.",
-            "patents": [
-              {
-                "id": "patent number",
-                "title": "patent title",
-                "abstract": "2-sentence abstract",
-                "assignee": "company or institution name",
-                "filing_date": "YYYY-MM-DD",
-                "jurisdiction": "AU|US|EP|WO",
-                "source": "ip_australia|epo|uspto|google|lens|espacenet",
-                "relevance": 0.8
-              }
-            ],
-            "stats": {
-              "total_found": 10,
-              "databases_queried": ${selectedDbs.length},
-              "duplicates_removed": 2
-            }
-          }`,
-          responseMimeType: 'application/json',
-        },
-      });
+      if (selectedDbs.includes('uspto')) {
+        const response = await axios.get('/api/patents/patentsview', {
+          params: {
+            q: query,
+            size: 10
+          }
+        });
+        
+        const patents = (response.data.patents || []).map((p: any) => {
+          const owners = p.assignees?.map((a: any) => a.assignee_organization).filter(Boolean) || [];
+          return {
+            id: p.patent_id || "",
+            title: p.patent_title || "",
+            abstract: p.patent_abstract || "",
+            assignee: owners.join(", ") || "Unknown",
+            filing_date: p.application?.filing_date || "",
+            jurisdiction: "US",
+            source: "uspto",
+            relevance: 1.0
+          };
+        });
 
-      const parsed = JSON.parse(response.text || '{}');
-      setResults(parsed);
+        setResults({
+          analysis: `Found ${response.data.total_hits || patents.length} results from USPTO PatentsView.`,
+          patents: patents,
+          stats: {
+            total_found: response.data.total_hits || patents.length,
+            databases_queried: 1,
+            duplicates_removed: 0
+          }
+        });
+      } else {
+        // Mock response for other databases until implemented
+        setResults({
+          analysis: `Search for other databases is coming soon.`,
+          patents: [],
+          stats: {
+            total_found: 0,
+            databases_queried: selectedDbs.length,
+            duplicates_removed: 0
+          }
+        });
+      }
     } catch (err: any) {
-      setError(err.message || 'Search failed');
+      setError(err.response?.data?.error || err.message || 'Search failed');
     } finally {
       setLoading(false);
     }
@@ -123,7 +129,7 @@ const PatentSearchPage: React.FC = () => {
               <p className="text-sm text-gray-600">{p.id} - {p.assignee}</p>
               <p className="mt-2">{p.abstract}</p>
               <a 
-                href={`https://patents.google.com/patent/${p.id.replace(/[^a-zA-Z0-9]/g, '')}/en`} 
+                href={`https://patents.google.com/patent/US${p.id.replace(/[^a-zA-Z0-9]/g, '')}/en`} 
                 target="_blank" 
                 rel="noreferrer"
                 className="text-blue-600 hover:underline mt-2 block font-medium"

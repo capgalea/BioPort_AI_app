@@ -51,6 +51,21 @@ export const stripLegalSuffixes = (name: string): string => {
   return cleanName;
 };
 
+export const checkGeminiHealth = async (): Promise<boolean> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) return false;
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  try {
+    await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: "ping",
+    });
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
 const cleanNctId = (id?: string): string | undefined => {
   if (!id) return undefined;
   const match = id.match(/NCT\s*(\d{8})/i);

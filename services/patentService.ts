@@ -2,6 +2,13 @@
 import { Patent } from '../types.ts';
 import { fetchPatentsFromPatentsView } from './patentsViewService.ts';
 
+export interface PatentFilters {
+  inventor?: string;
+  applicant?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 /**
  * PatentService handles fetching and processing patent data.
  * Integrates with PatentsView API.
@@ -10,10 +17,10 @@ class PatentService {
   /**
    * Fetches patents for a specific company or topic from PatentsView.
    */
-  async getPatents(query: string): Promise<Patent[]> {
+  async getPatents(query: string, filters?: PatentFilters): Promise<Patent[]> {
     console.log(`Fetching patents for: ${query}`);
     try {
-      return await fetchPatentsFromPatentsView(query);
+      return await fetchPatentsFromPatentsView(query, filters);
     } catch (error: any) {
       console.error("PatentService Error:", error);
       throw error;

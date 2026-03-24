@@ -36,6 +36,10 @@ export default function PatentAnalyticsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('biotech');
+  const [inventor, setInventor] = useState('');
+  const [applicant, setApplicant] = useState('');
+  const [startYear, setStartYear] = useState(2010);
+  const [endYear, setEndYear] = useState(new Date().getFullYear());
 
   // Table State
   const [visibleColumns, setVisibleColumns] = useState<string[]>(COLUMNS.map(c => c.id));
@@ -47,11 +51,23 @@ export default function PatentAnalyticsView() {
   const [hoveredCell, setHoveredCell] = useState<{ rowId: string, colId: string, content: string, x: number, y: number } | null>(null);
   const [displayLimit, setDisplayLimit] = useState(10);
 
-  const fetchPatents = async () => {
+  const fetchPatents = async (overrides?: any) => {
     setLoading(true);
     setError(null);
+
+    const q = overrides?.searchQuery !== undefined ? overrides.searchQuery : searchQuery;
+    const inv = overrides?.inventor !== undefined ? overrides.inventor : inventor;
+    const app = overrides?.applicant !== undefined ? overrides.applicant : applicant;
+    const sYear = overrides?.startYear !== undefined ? overrides.startYear : startYear;
+    const eYear = overrides?.endYear !== undefined ? overrides.endYear : endYear;
+
     try {
-      const result = await patentService.getPatents(searchQuery);
+      const result = await patentService.getPatents(q, {
+        inventor: inv || undefined,
+        applicant: app || undefined,
+        startDate: `${sYear}-01-01`,
+        endDate: `${eYear}-12-31`
+      });
       setPatents(result);
       setSelectedRows(new Set());
     } catch (err: any) {
@@ -248,31 +264,91 @@ export default function PatentAnalyticsView() {
       {/* Search & Filter Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
         <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from USPTO</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query</label>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-4">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title)</label>
             <input 
               type="text" 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search patent titles (e.g., CRISPR, mRNA)..."
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
             />
           </div>
-          <div className="flex items-end gap-2">
+          
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor (Last Name)</label>
+            <input 
+              type="text" 
+              value={inventor}
+              onChange={(e) => setInventor(e.target.value)}
+              placeholder="e.g., Doudna"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Applicant / Assignee</label>
+            <input 
+              type="text" 
+              value={applicant}
+              onChange={(e) => setApplicant(e.target.value)}
+              placeholder="e.g., Moderna"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div className="lg:col-span-2 flex gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Start Year: {startYear}</label>
+              <input 
+                type="range" 
+                min="1990" 
+                max={new Date().getFullYear()} 
+                value={startYear}
+                onChange={(e) => setStartYear(Number(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">End Year: {endYear}</label>
+              <input 
+                type="range" 
+                min="1990" 
+                max={new Date().getFullYear()} 
+                value={endYear}
+                onChange={(e) => setEndYear(Number(e.target.value))}
+                className="w-full accent-blue-600"
+              />
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 flex items-end gap-2 mt-2">
             <button 
-              onClick={fetchPatents}
+              onClick={() => fetchPatents()}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2"
             >
               <Search className="w-4 h-4" /> Search
             </button>
             <button 
               onClick={() => {
+                const currentYear = new Date().getFullYear();
                 setSearchQuery('biotech');
-                fetchPatents();
+                setInventor('');
+                setApplicant('');
+                setStartYear(2010);
+                setEndYear(currentYear);
+                fetchPatents({
+                  searchQuery: 'biotech',
+                  inventor: '',
+                  applicant: '',
+                  startYear: 2010,
+                  endYear: currentYear
+                });
               }}
               className="px-6 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 flex items-center gap-2"
             >
-              Clear
+              Clear Filters
             </button>
           </div>
         </div>
