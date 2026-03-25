@@ -237,6 +237,7 @@ export interface Patent {
   citedWork: string[];
   url?: string;
   source?: string;
+  actualApplicationNumber?: string;
 }
 
 export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'prospectGenerator';

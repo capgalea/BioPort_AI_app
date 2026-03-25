@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import { 
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
-  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X
+  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X, Maximize2
 } from 'lucide-react';
 import { Patent } from '../types';
 import { patentService } from '../services/patentService';
@@ -35,7 +35,7 @@ export default function PatentAnalyticsView() {
   const [patents, setPatents] = useState<Patent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('biotech');
+  const [searchQuery, setSearchQuery] = useState('');
   const [inventor, setInventor] = useState('');
   const [applicant, setApplicant] = useState('');
   const [startYear, setStartYear] = useState(2010);
@@ -50,6 +50,7 @@ export default function PatentAnalyticsView() {
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<{ rowId: string, colId: string, content: string, x: number, y: number } | null>(null);
   const [displayLimit, setDisplayLimit] = useState(10);
+  const [previewPatent, setPreviewPatent] = useState<Patent | null>(null);
 
   const fetchPatents = async (overrides?: any) => {
     setLoading(true);
@@ -333,13 +334,13 @@ export default function PatentAnalyticsView() {
             <button 
               onClick={() => {
                 const currentYear = new Date().getFullYear();
-                setSearchQuery('biotech');
+                setSearchQuery('');
                 setInventor('');
                 setApplicant('');
                 setStartYear(2010);
                 setEndYear(currentYear);
                 fetchPatents({
-                  searchQuery: 'biotech',
+                  searchQuery: '',
                   inventor: '',
                   applicant: '',
                   startYear: 2010,
@@ -504,6 +505,9 @@ export default function PatentAnalyticsView() {
                         className="rounded text-blue-600 focus:ring-blue-500"
                       />
                     </th>
+                    <th className="p-3 text-center w-12">
+                      <span className="text-xs font-black text-slate-700 uppercase tracking-wider">View</span>
+                    </th>
                     {COLUMNS.filter(c => visibleColumns.includes(c.id)).map(col => (
                       <th key={col.id} className="p-3 align-top min-w-[150px]">
                         <div className="flex flex-col gap-2">
@@ -572,6 +576,15 @@ export default function PatentAnalyticsView() {
                           className="rounded text-blue-600 focus:ring-blue-500"
                         />
                       </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => setPreviewPatent(patent)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Preview Patent"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                      </td>
                       {COLUMNS.filter(c => visibleColumns.includes(c.id)).map(col => {
                         const val = (patent as any)[col.id];
                         const displayVal = Array.isArray(val) ? val.join(', ') : String(val || '');
@@ -594,10 +607,11 @@ export default function PatentAnalyticsView() {
                           >
                             {col.id === 'applicationNumber' ? (
                               <a 
-                                href={`https://pericles.ipaustralia.gov.au/ols/auspat/applicationDetails.do?applicationNo=${patent.applicationNumber.replace(/[^0-9]/g, '')}`}
+                                href={patent.actualApplicationNumber ? `https://patentcenter.uspto.gov/applications/${patent.actualApplicationNumber}` : `https://patentcenter.uspto.gov/patents/${patent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 font-bold hover:underline flex items-center gap-1"
+                                title="View on USPTO Patent Center"
                               >
                                 {displayVal} <ExternalLink className="w-3 h-3" />
                               </a>
@@ -611,7 +625,7 @@ export default function PatentAnalyticsView() {
                   ))}
                   {processedPatents.length === 0 && (
                     <tr>
-                      <td colSpan={visibleColumns.length + 1} className="p-8 text-center text-slate-500">
+                      <td colSpan={visibleColumns.length + 2} className="p-8 text-center text-slate-500">
                         No patents match the current filters.
                       </td>
                     </tr>
@@ -642,6 +656,121 @@ export default function PatentAnalyticsView() {
             >
               <div className="font-bold text-slate-400 mb-1">{COLUMNS.find(c => c.id === hoveredCell.colId)?.label}</div>
               <div className="break-words whitespace-pre-wrap">{hoveredCell.content}</div>
+            </div>
+          )}
+
+          {/* Preview Modal */}
+          {previewPatent && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+                        {previewPatent.status || 'Unknown Status'}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        {previewPatent.applicationNumber}
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                      {previewPatent.title || 'Untitled Patent'}
+                    </h2>
+                  </div>
+                  <button 
+                    onClick={() => setPreviewPatent(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assignees / Applicants</h4>
+                      <p className="text-sm font-medium text-slate-800">
+                        {previewPatent.applicants?.length ? previewPatent.applicants.join(', ') : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Inventors</h4>
+                      <p className="text-sm font-medium text-slate-800">
+                        {previewPatent.inventors?.length ? previewPatent.inventors.join(', ') : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Filing Date</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.dateFiled || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Publication Date</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.datePublished || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority Date</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.earliestPriorityDate || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Grant Date</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.dateGranted || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-8">
+                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Abstract</h4>
+                    <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      {previewPatent.abstract || 'No abstract available.'}
+                    </p>
+                  </div>
+                  
+                  {previewPatent.claim && (
+                    <div className="mb-8">
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Claims</h4>
+                      <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        {previewPatent.claim}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                  {previewPatent.pdfUrl && (
+                    <a
+                      href={previewPatent.pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 flex items-center gap-2 transition-colors"
+                    >
+                      Download PDF <FileText className="w-4 h-4" />
+                    </a>
+                  )}
+                  <div className="flex gap-2 ml-auto">
+                    {previewPatent.url ? (
+                      <a 
+                        href={previewPatent.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                      >
+                        View Original Source <ExternalLink className="w-4 h-4" />
+                      </a>
+                    ) : (
+                      <a 
+                        href={`https://patents.google.com/patent/US${previewPatent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}/en`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                      >
+                        Search on Google Patents <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </>

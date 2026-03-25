@@ -10,4 +10,5 @@ export interface Patent {
   source: string;
   familyId?: string;
   link?: string;
+  pdfUrl?: string;
 }

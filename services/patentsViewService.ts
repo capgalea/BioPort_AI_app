@@ -30,13 +30,15 @@ export const fetchPatentsFromPatentsView = async (query: string, filters?: Paten
         status: "Granted", // All patents/ endpoint results are granted
         family: "",
         familyJurisdictions: ["US"],
-        dateFiled: p.application?.filing_date || "",
+        dateFiled: p.application?.[0]?.filing_date || "",
         datePublished: "",
         earliestPriorityDate: p.patent_earliest_application_date || "",
         dateGranted: p.patent_date || "",
         citedWork: [],
-        url: p.patent_id ? `https://patents.google.com/patent/US${p.patent_id}/en` : undefined,
-        source: "PatentsView"
+        url: p.application?.[0]?.application_id ? `https://patentcenter.uspto.gov/applications/${p.application[0].application_id.replace(/[^0-9]/g, '')}` : `https://patentcenter.uspto.gov/patents/${p.patent_id}`,
+        source: "PatentsView",
+        actualApplicationNumber: p.application?.[0]?.application_id?.replace(/[^0-9]/g, '') || "",
+        pdfUrl: `https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/${p.patent_id}`
       };
     });
   } catch (error: any) {
