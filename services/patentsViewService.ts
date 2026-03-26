@@ -20,7 +20,9 @@ export const fetchPatentsFromPatentsView = async (query: string, filters?: Paten
       
       // Determine status
       let status = "Granted";
-      if (p.patent_type) {
+      if (p.is_publication) {
+        status = "Pre-grant Publication";
+      } else if (p.patent_type) {
         status = `Granted (${p.patent_type})`;
       } else if (p.patent_kind) {
         status = `Granted (Kind: ${p.patent_kind})`;
@@ -51,9 +53,9 @@ export const fetchPatentsFromPatentsView = async (query: string, filters?: Paten
         family: "",
         familyJurisdictions: Array.from(jurisdictions),
         dateFiled: p.application?.[0]?.filing_date || "",
-        datePublished: "",
+        datePublished: p.is_publication ? (p.patent_date || "") : "",
         earliestPriorityDate: p.patent_earliest_application_date || "",
-        dateGranted: p.patent_date || "",
+        dateGranted: p.is_publication ? "" : (p.patent_date || ""),
         citedWork: [],
         url: `https://patents.google.com/patent/US${p.patent_id}`,
         source: "PatentsView",

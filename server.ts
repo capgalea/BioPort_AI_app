@@ -425,7 +425,7 @@ app.get("/api/patents/patentsview", async (req, res) => {
     }
 
     const qParam = JSON.stringify(qObj);
-    const fParam = JSON.stringify([
+    const fParamPatent = JSON.stringify([
       "patent_id",
       "patent_title",
       "patent_date",
@@ -449,19 +449,66 @@ app.get("/api/patents/patentsview", async (req, res) => {
       "pct_data.pct_102_date",
       "pct_data.published_filed_date"
     ]);
-    const oParam = JSON.stringify({ "size": Math.min(size, 100) });
 
-    const url = `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(qParam)}&f=${encodeURIComponent(fParam)}&o=${encodeURIComponent(oParam)}`;
+    const fParamPub = JSON.stringify([
+      "document_number",
+      "publication_title",
+      "publication_date",
+      "publication_abstract",
+      "assignees.assignee_organization",
+      "assignees.assignee_individual_name_first",
+      "assignees.assignee_individual_name_last",
+      "assignees.assignee_country",
+      "inventors.inventor_name_first",
+      "inventors.inventor_name_last",
+      "inventors.inventor_country",
+      "inventors.inventor_state"
+    ]);
 
-    logDebug(`Fetching from PatentsView: ${url}`);
+    // Split size between patents and publications
+    const halfSize = Math.max(Math.floor(size / 2), 1);
+    const oParam = JSON.stringify({ "size": Math.min(halfSize, 10000) });
 
-    const response = await axios.get(url, {
-      headers: {
-        "X-Api-Key": apiKey
-      }
+    const patentUrl = `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(qParam)}&f=${encodeURIComponent(fParamPatent)}&o=${encodeURIComponent(oParam)}`;
+    
+    // Convert patent query fields to publication query fields
+    const pubQObj = JSON.parse(JSON.stringify(qObj).replace(/patent_title/g, 'publication_title').replace(/patent_date/g, 'publication_date'));
+    const pubQParam = JSON.stringify(pubQObj);
+    const pubUrl = `https://search.patentsview.org/api/v1/publication/?q=${encodeURIComponent(pubQParam)}&f=${encodeURIComponent(fParamPub)}&o=${encodeURIComponent(oParam)}`;
+
+    logDebug(`Fetching from PatentsView: ${patentUrl}`);
+    logDebug(`Fetching from PatentsView Pubs: ${pubUrl}`);
+
+    const [patentResponse, pubResponse] = await Promise.all([
+      axios.get(patentUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
+        logDebug("Patent fetch error:", e.response?.data || e.message);
+        return { data: { patents: [], count: 0, total_patent_count: 0 } };
+      }),
+      axios.get(pubUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
+        logDebug("Publication fetch error:", e.response?.data || e.message);
+        return { data: { publications: [], count: 0, total_hits: 0 } };
+      })
+    ]);
+
+    const patents = patentResponse.data.patents || [];
+    const publications = pubResponse.data.publications || [];
+
+    const mappedPublications = publications.map((pub: any) => ({
+      patent_id: pub.document_number,
+      patent_title: pub.publication_title,
+      patent_date: pub.publication_date,
+      patent_abstract: pub.publication_abstract,
+      patent_type: "Pre-grant Publication",
+      is_publication: true,
+      assignees: pub.assignees,
+      inventors: pub.inventors
+    }));
+
+    res.json({
+      patents: [...patents, ...mappedPublications],
+      count: (patentResponse.data.count || 0) + (pubResponse.data.count || 0),
+      total_patent_count: (patentResponse.data.total_patent_count || 0) + (pubResponse.data.total_hits || 0)
     });
-
-    res.json(response.data);
   } catch (error: any) {
     const errorData = error.response?.data || error.message || error;
     logDebug("PatentsView API Error:", errorData);
