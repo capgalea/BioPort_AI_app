@@ -66,7 +66,7 @@ graph TD
         Tools -->|Google Search| Search[Google Grounding Tool]
         Tools -->|Registry Query| SQL[AACT Virtual SQL Agent]
         Tools -->|Literature| PubMed[PubMed API Call]
-        Tools -->|Patent Search| Patents[PatentsView API]
+        Tools -->|Patent Search| Patents[USPTO & Google Patents]
         
         Search --> Synthesis[Data Aggregation]
         SQL --> Synthesis
@@ -265,7 +265,7 @@ graph TD
                       <Node 
                         icon={<ShieldCheck className="w-5 h-5 text-teal-600" />} 
                         title="Patent API" 
-                        subtitle="PatentsView Registry" 
+                        subtitle="USPTO & Google Patents" 
                         bg="bg-teal-50" 
                         border="border-teal-200" 
                         small 

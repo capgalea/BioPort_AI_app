@@ -215,6 +215,59 @@ async function processBatchesWithConcurrency<T>(
   return results;
 }
 
+export const generatePatentComparisonSummary = async (
+  patents: Patent[],
+  query: string
+): Promise<{ summary: string, references: { title: string, url: string }[] }> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) throw new Error("API Key required.");
+
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  
+  const prompt = `
+  Analyze the following patents and provide a summary based on the query: "${query}".
+  
+  Patents to analyze:
+  ${JSON.stringify(patents.map(p => ({ title: p.title, abstract: p.abstract, applicationNumber: p.applicationNumber })))}
+  
+  INSTRUCTIONS:
+  1. Emphasize accuracy.
+  2. Provide references with links where appropriate.
+  3. If a reference is a patent, link to Google Patents using the application number.
+  
+  Return a JSON object with keys "summary" (string) and "references" (array of objects with "title" and "url").
+  `;
+
+  const response: GenerateContentResponse = await ai.models.generateContent({
+    model: "gemini-3.1-flash-lite-preview",
+    contents: prompt,
+    config: {
+      temperature: 0.2,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          references: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                url: { type: Type.STRING }
+              },
+              required: ["title", "url"]
+            }
+          }
+        },
+        required: ["summary", "references"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text || "{}");
+};
+
 // --- API INTEGRATION ---
 
 export const fetchAllClinicalTrials = async (companyName: string): Promise<PipelineDrug[]> => {
@@ -1180,6 +1233,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
       config: { 
         systemInstruction: systemInstruction,
         tools: activeTools,
+        toolConfig: { includeServerSideToolInvocations: true },
         // Optional: cachedContent: 'name-of-cache' if we were using the caches API
       },
       history: history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] }))

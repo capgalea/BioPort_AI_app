@@ -462,7 +462,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
                     }} 
                   />
                 </div>
-                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Patent Intelligence (USPTO & IP Australia)</span>
+                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> Patent Intelligence (Google Patent Search)</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useUSPatentSearch ? 'bg-blue-500' : 'bg-slate-200'}`}>

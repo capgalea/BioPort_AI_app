@@ -19,9 +19,10 @@ interface DetailModalProps {
   onClose: () => void;
   onResearcherClick?: (name: string, institution: string, bio?: string) => void;
   onProductClick?: (productName: string) => void;
+  onPatentSearchClick?: (companyName: string) => void;
 }
 
-const DetailModal: React.FC<DetailModalProps> = ({ company, onClose, onResearcherClick, onProductClick }) => {
+const DetailModal: React.FC<DetailModalProps> = ({ company, onClose, onResearcherClick, onProductClick, onPatentSearchClick }) => {
   const [showTrialsModal, setShowTrialsModal] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -29,6 +30,10 @@ const DetailModal: React.FC<DetailModalProps> = ({ company, onClose, onResearche
   const dragOffset = useRef({ x: 0, y: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // ... (rest of the file)
+  // Inside the render, find PatentSection and pass the prop
+  // <PatentSection companyName={company.name} onPatentSearchClick={onPatentSearchClick || (() => {})} />
 
   useEffect(() => {
     if (company) {
@@ -583,7 +588,7 @@ const DetailModal: React.FC<DetailModalProps> = ({ company, onClose, onResearche
             {/* Added Patent Section */}
             <div className="pt-12 border-t border-slate-100">
                <Suspense fallback={<div className="h-40 flex items-center justify-center bg-slate-50 rounded-3xl text-slate-400"><Loader2 className="animate-spin mr-2" /> Loading IP node...</div>}>
-                  <PatentSection companyName={company.name} />
+                  <PatentSection companyName={company.name} onPatentSearchClick={onPatentSearchClick || (() => {})} />
                </Suspense>
             </div>
 

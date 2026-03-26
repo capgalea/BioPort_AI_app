@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Bot, FileText, Loader2, Search, Check, AlertCircle } from 'lucide-react';
+import { patentService } from '../services/patentService';
 
 interface Database {
   id: string;
@@ -9,17 +10,13 @@ interface Database {
 }
 
 const DATABASES: Database[] = [
-  { id: 'ip_australia', name: 'IP Australia', desc: 'AusPat — full Australian patent grants & applications', badge: 'AU' },
-  { id: 'epo', name: 'EPO / OPS', desc: 'Open Patent Services — 100M+ patents worldwide', badge: 'EU' },
   { id: 'uspto', name: 'USPTO PatentsView', desc: 'US patent grants & applications', badge: 'US' },
   { id: 'google', name: 'Google Patents', desc: '120+ patent offices incl. WIPO PCT', badge: 'GL' },
-  { id: 'lens', name: 'Lens.org', desc: 'Open patent + scholarly literature linkage', badge: 'GL' },
-  { id: 'espacenet', name: 'Espacenet', desc: 'EPO full-text — best for CPC/IPC classification', badge: 'EU' },
 ];
 
 const PatentSearchAgent: React.FC = () => {
   const [query, setQuery] = useState('');
-  const [selectedDbs, setSelectedDbs] = useState<string[]>(['ip_australia', 'epo']);
+  const [selectedDbs, setSelectedDbs] = useState<string[]>(['uspto', 'google']);
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -41,14 +38,26 @@ const PatentSearchAgent: React.FC = () => {
     setResults([]);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      let allResults: any[] = [];
       
-      // Simulated results
-      setResults([
-        { id: 'AU2023123456', title: 'CRISPR-Cas9 correction in CAR-T', assignee: 'BioTech Aus', relevance: 0.95 },
-        { id: 'US2024987654', title: 'Liver-targeted gene therapy', assignee: 'Global Pharma', relevance: 0.88 },
-      ]);
+      // USPTO Search
+      if (selectedDbs.includes('uspto')) {
+        const usptoResults = await patentService.getPatents(query, {}, 10);
+        allResults = [...allResults, ...usptoResults.map(r => ({ ...r, source: 'USPTO' }))];
+      }
+
+      // Google Patents Search (Placeholder)
+      if (selectedDbs.includes('google')) {
+        // Placeholder for Google Patents Search
+        allResults = [...allResults, { 
+          id: 'GOOGLE-123', 
+          title: `Google Patent Search for: ${query}`, 
+          assignee: 'Various', 
+          relevance: 0.9 
+        }];
+      }
+
+      setResults(allResults);
     } catch (err) {
       setError('Search failed. Please try again.');
     } finally {

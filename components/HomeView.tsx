@@ -107,6 +107,15 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
       btnText: "Find Roles",
       color: "from-amber-500 to-orange-500",
       image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop"
+    },
+    {
+      title: "Prospect Generator",
+      description: "Generate and manage customer prospects for your biotech outreach.",
+      icon: <UserPlus className="w-5 h-5 text-white" />,
+      action: () => onNavigate('prospectGenerator'),
+      btnText: "Generate Prospects",
+      color: "from-pink-500 to-rose-500",
+      image: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=800&auto=format&fit=crop"
     }
   ];
 

@@ -238,6 +238,16 @@ export interface Patent {
   url?: string;
   source?: string;
   actualApplicationNumber?: string;
+  patentType?: string;
+  patentKind?: string;
+  inventorsCountry?: string[];
+  inventorsState?: string[];
+  pctDocNumber?: string;
+  pctKind?: string;
+  pctDate?: string;
+  pct371Date?: string;
+  pct102Date?: string;
+  publishedFiledDate?: string;
 }
 
 export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'prospectGenerator';

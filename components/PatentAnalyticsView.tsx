@@ -1,56 +1,165 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { format, isWithinInterval, parseISO } from 'date-fns';
 import { 
   PieChart as RePieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
 } from 'recharts';
 import { 
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
-  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X, Maximize2
+  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X, Maximize2, Copy
 } from 'lucide-react';
 import { Patent } from '../types';
 import { patentService } from '../services/patentService';
+import { generatePatentComparisonSummary } from '../services/geminiService';
+import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 
-const COLUMNS = [
+const INITIAL_COLUMNS = [
   { id: 'applicationNumber', label: 'Application Number' },
   { id: 'owners', label: 'Owners' },
   { id: 'applicants', label: 'Applicants' },
   { id: 'inventors', label: 'Inventors' },
   { id: 'title', label: 'Title' },
   { id: 'abstract', label: 'Abstract' },
-  { id: 'claim', label: 'Claim' },
-  { id: 'description', label: 'Description' },
   { id: 'status', label: 'Status' },
-  { id: 'family', label: 'Family' },
+  { id: 'patentType', label: 'Patent Type' },
+  { id: 'patentKind', label: 'Patent Kind' },
   { id: 'familyJurisdictions', label: 'Family Jurisdictions' },
+  { id: 'inventorsCountry', label: 'Inventor Country' },
+  { id: 'inventorsState', label: 'Inventor State' },
   { id: 'dateFiled', label: 'Date Filed' },
-  { id: 'datePublished', label: 'Date Published' },
   { id: 'earliestPriorityDate', label: 'Earliest Priority Date' },
   { id: 'dateGranted', label: 'Date Granted' },
-  { id: 'citedWork', label: 'Cited Work' }
+  { id: 'pctDocNumber', label: 'PCT Doc Number' },
+  { id: 'pctKind', label: 'PCT Kind' },
+  { id: 'pctDate', label: 'PCT Date' },
+  { id: 'pct371Date', label: 'PCT 371 Date' },
+  { id: 'pct102Date', label: 'PCT 102 Date' },
+  { id: 'publishedFiledDate', label: 'Published Filed Date' }
 ];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-export default function PatentAnalyticsView() {
+const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVisible: boolean, onToggle: () => void }) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1 p-1.5 hover:bg-slate-50 rounded bg-white">
+      <div {...attributes} {...listeners} className="cursor-grab text-slate-400 hover:text-slate-700">
+        <GripVertical className="w-4 h-4" />
+      </div>
+      <label className="flex items-center gap-2 flex-1 cursor-pointer">
+        <input 
+          type="checkbox" 
+          checked={isVisible}
+          onChange={onToggle}
+          className="rounded text-blue-600 focus:ring-blue-500"
+        />
+        <span className="text-xs font-medium text-slate-700">{column.label}</span>
+      </label>
+    </div>
+  );
+};
+
+export default function PatentAnalyticsView({ initialCompany }: { initialCompany?: string }) {
   const [patents, setPatents] = useState<Patent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [aiQuery, setAiQuery] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [inventor, setInventor] = useState('');
-  const [applicant, setApplicant] = useState('');
+  const [inventorFirstName, setInventorFirstName] = useState('');
+  const [applicant, setApplicant] = useState(initialCompany || '');
   const [startYear, setStartYear] = useState(2010);
   const [endYear, setEndYear] = useState(new Date().getFullYear());
 
   // Table State
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(COLUMNS.map(c => c.id));
+  const [tableColumns, setTableColumns] = useState(INITIAL_COLUMNS);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(INITIAL_COLUMNS.map(c => c.id));
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string[]>>({});
+  const [draftFilters, setDraftFilters] = useState<Record<string, string[]>>({});
+  const [filterSearch, setFilterSearch] = useState<Record<string, string>>({});
+  const [dateFilters, setDateFilters] = useState<Record<string, string[]>>({});
   const [firstCharFilters, setFirstCharFilters] = useState<Record<string, string>>({});
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [hoveredCell, setHoveredCell] = useState<{ rowId: string, colId: string, content: string, x: number, y: number } | null>(null);
   const [displayLimit, setDisplayLimit] = useState(10);
+  const [downloadLimit, setDownloadLimit] = useState<number | 'ALL'>(25);
   const [previewPatent, setPreviewPatent] = useState<Patent | null>(null);
+  const [comparisonPopup, setComparisonPopup] = useState<Patent[] | null>(null);
+  const [comparisonModalSize, setComparisonModalSize] = useState({ width: 1000, height: 600 });
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeOffset, setResizeOffset] = useState({ x: 0, y: 0 });
+  const [aiResponsePopup, setAiResponsePopup] = useState<{ summary: string, references: { title: string, url: string }[] } | null>(null);
+  const [aiResponsePopupPosition, setAiResponsePopupPosition] = useState({ x: 0, y: 0 });
+  const [fullTextPopup, setFullTextPopup] = useState<{ content: string, title: string } | null>(null);
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggingModal, setDraggingModal] = useState<'preview' | 'ai' | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDraggingModal('preview');
+    setDragOffset({
+      x: e.clientX - modalPosition.x,
+      y: e.clientY - modalPosition.y
+    });
+  };
+
+  const handleAiMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDraggingModal('ai');
+    setDragOffset({
+      x: e.clientX - aiResponsePopupPosition.x,
+      y: e.clientY - aiResponsePopupPosition.y
+    });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging) {
+        if (draggingModal === 'preview') {
+          setModalPosition({
+            x: e.clientX - dragOffset.x,
+            y: e.clientY - dragOffset.y
+          });
+        } else if (draggingModal === 'ai') {
+          setAiResponsePopupPosition({
+            x: e.clientX - dragOffset.x,
+            y: e.clientY - dragOffset.y
+          });
+        }
+      } else if (isResizing) {
+        setComparisonModalSize({
+          width: Math.max(300, e.clientX - resizeOffset.x),
+          height: Math.max(200, e.clientY - resizeOffset.y)
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      setDraggingModal(null);
+      setIsResizing(false);
+    };
+
+    if (isDragging || isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, draggingModal, dragOffset, isResizing, resizeOffset]);
 
   const fetchPatents = async (overrides?: any) => {
     setLoading(true);
@@ -58,6 +167,7 @@ export default function PatentAnalyticsView() {
 
     const q = overrides?.searchQuery !== undefined ? overrides.searchQuery : searchQuery;
     const inv = overrides?.inventor !== undefined ? overrides.inventor : inventor;
+    const invFirstName = overrides?.inventorFirstName !== undefined ? overrides.inventorFirstName : inventorFirstName;
     const app = overrides?.applicant !== undefined ? overrides.applicant : applicant;
     const sYear = overrides?.startYear !== undefined ? overrides.startYear : startYear;
     const eYear = overrides?.endYear !== undefined ? overrides.endYear : endYear;
@@ -65,10 +175,11 @@ export default function PatentAnalyticsView() {
     try {
       const result = await patentService.getPatents(q, {
         inventor: inv || undefined,
+        inventorFirstName: invFirstName || undefined,
         applicant: app || undefined,
         startDate: `${sYear}-01-01`,
         endDate: `${eYear}-12-31`
-      });
+      }, downloadLimit === 'ALL' ? 10000 : downloadLimit);
       setPatents(result);
       setSelectedRows(new Set());
     } catch (err: any) {
@@ -79,8 +190,23 @@ export default function PatentAnalyticsView() {
   };
 
   useEffect(() => {
-    fetchPatents();
-  }, []);
+    if (initialCompany) {
+      fetchPatents({ applicant: initialCompany });
+    } else {
+      fetchPatents();
+    }
+  }, [initialCompany]);
+
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      setTableColumns((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over?.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   const toggleColumn = (colId: string) => {
     setVisibleColumns(prev => 
@@ -94,10 +220,6 @@ export default function PatentAnalyticsView() {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-  };
-
-  const handleFilterChange = (colId: string, value: string) => {
-    setFilters(prev => ({ ...prev, [colId]: value }));
   };
 
   const handleFirstCharFilterChange = (colId: string, char: string) => {
@@ -142,9 +264,9 @@ export default function PatentAnalyticsView() {
       a.click();
       URL.revokeObjectURL(url);
     } else if (format === 'csv') {
-      const headers = COLUMNS.filter(c => visibleColumns.includes(c.id)).map(c => c.label);
+      const headers = tableColumns.filter(c => visibleColumns.includes(c.id)).map(c => c.label);
       const csvRows = dataToExport.map(p => {
-        return COLUMNS.filter(c => visibleColumns.includes(c.id)).map(c => {
+        return tableColumns.filter(c => visibleColumns.includes(c.id)).map(c => {
           const val = (p as any)[c.id];
           const strVal = Array.isArray(val) ? val.join('; ') : String(val || '');
           return `"${strVal.replace(/"/g, '""')}"`;
@@ -161,6 +283,19 @@ export default function PatentAnalyticsView() {
     }
   };
 
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    patents.forEach(p => {
+      ['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].forEach(colId => {
+        const val = (p as any)[colId];
+        if (val) {
+          years.add(parseISO(val).getFullYear().toString());
+        }
+      });
+    });
+    return Array.from(years).sort().reverse();
+  }, [patents]);
+
   const processedPatents = useMemo(() => {
     let result = [...patents];
 
@@ -169,14 +304,35 @@ export default function PatentAnalyticsView() {
       result = result.filter(p => selectedRows.has(p.applicationNumber));
     }
 
+    // Apply year filters
+    Object.entries(dateFilters).forEach(([colId, selectedYears]) => {
+      if (!selectedYears || selectedYears.length === 0) return;
+      result = result.filter(p => {
+        const val = (p as any)[colId];
+        if (!val) return false;
+        
+        // Try parsing as ISO, then fallback to Date constructor
+        let date = parseISO(val);
+        if (isNaN(date.getTime())) {
+          date = new Date(val);
+        }
+        
+        if (isNaN(date.getTime())) {
+          console.warn(`Invalid date format for ${colId}: ${val}`);
+          return false;
+        }
+        const year = date.getFullYear().toString();
+        return selectedYears.includes(year);
+      });
+    });
+
     // Apply text filters
-    Object.entries(filters).forEach(([colId, filterValue]) => {
-      if (!filterValue) return;
-      const lowerFilter = String(filterValue).toLowerCase();
+    Object.entries(filters).forEach(([colId, filterValues]) => {
+      if (!filterValues || filterValues.length === 0) return;
       result = result.filter(p => {
         const val = (p as any)[colId];
         const strVal = Array.isArray(val) ? val.join(' ') : String(val || '');
-        return strVal.toLowerCase().includes(lowerFilter);
+        return filterValues.some(f => strVal.toLowerCase().includes(f.toLowerCase()));
       });
     });
 
@@ -206,7 +362,7 @@ export default function PatentAnalyticsView() {
     }
 
     return result;
-  }, [patents, filters, firstCharFilters, sortConfig, showOnlySelected, selectedRows]);
+  }, [patents, filters, firstCharFilters, dateFilters, sortConfig, showOnlySelected, selectedRows]);
 
   useEffect(() => {
     setDisplayLimit(10);
@@ -225,6 +381,23 @@ export default function PatentAnalyticsView() {
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [processedPatents]);
+
+  const uniqueColumnValues = useMemo(() => {
+    const unique: Record<string, string[]> = {};
+    tableColumns.forEach(col => {
+      const values = new Set<string>();
+      processedPatents.forEach(p => {
+        const val = (p as any)[col.id];
+        if (Array.isArray(val)) {
+          val.forEach(v => v && values.add(String(v)));
+        } else if (val) {
+          values.add(String(val));
+        }
+      });
+      unique[col.id] = Array.from(values).sort();
+    });
+    return unique;
+  }, [processedPatents, tableColumns]);
 
   const yearData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -277,6 +450,31 @@ export default function PatentAnalyticsView() {
             />
           </div>
           
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Download Limit</label>
+            <select 
+              value={downloadLimit}
+              onChange={(e) => setDownloadLimit(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value="ALL">ALL</option>
+            </select>
+          </div>
+          
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor (First Name)</label>
+            <input 
+              type="text" 
+              value={inventorFirstName}
+              onChange={(e) => setInventorFirstName(e.target.value)}
+              placeholder="e.g., Jennifer"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
           <div className="lg:col-span-1">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor (Last Name)</label>
             <input 
@@ -336,12 +534,14 @@ export default function PatentAnalyticsView() {
                 const currentYear = new Date().getFullYear();
                 setSearchQuery('');
                 setInventor('');
+                setInventorFirstName('');
                 setApplicant('');
                 setStartYear(2010);
                 setEndYear(currentYear);
                 fetchPatents({
                   searchQuery: '',
                   inventor: '',
+                  inventorFirstName: '',
                   applicant: '',
                   startYear: 2010,
                   endYear: currentYear
@@ -442,17 +642,18 @@ export default function PatentAnalyticsView() {
                   <Eye className="w-4 h-4" /> Columns
                 </button>
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-2 hidden group-hover:block z-20 max-h-64 overflow-y-auto">
-                  {COLUMNS.map(c => (
-                    <label key={c.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={visibleColumns.includes(c.id)}
-                        onChange={() => toggleColumn(c.id)}
-                        className="rounded text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-xs font-medium text-slate-700">{c.label}</span>
-                    </label>
-                  ))}
+                  <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+                    <SortableContext items={tableColumns.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                      {tableColumns.map((c) => (
+                        <SortableColumnItem 
+                          key={c.id} 
+                          column={c} 
+                          isVisible={visibleColumns.includes(c.id)}
+                          onToggle={() => toggleColumn(c.id)}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
               </div>
               
@@ -465,7 +666,7 @@ export default function PatentAnalyticsView() {
               </button>
               
               <button 
-                onClick={() => { setFilters({}); setFirstCharFilters({}); }}
+                onClick={() => { setFilters({}); setFirstCharFilters({}); setDateFilters({}); }}
                 className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-200 flex items-center gap-2"
               >
                 <X className="w-4 h-4" /> Clear Table Filters
@@ -473,10 +674,24 @@ export default function PatentAnalyticsView() {
               
               {selectedRows.size > 0 && (
                 <button 
-                  onClick={() => setSelectedRows(new Set())}
+                  onClick={() => {
+                    setSelectedRows(new Set());
+                    setShowOnlySelected(false);
+                  }}
                   className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-200"
                 >
                   Deselect All
+                </button>
+              )}
+              {selectedRows.size > 1 && (
+                <button 
+                  onClick={() => {
+                    const selectedPatents = patents.filter(p => selectedRows.has(p.applicationNumber));
+                    setComparisonPopup(selectedPatents);
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700"
+                >
+                  Compare Selected ({selectedRows.size})
                 </button>
               )}
             </div>
@@ -506,9 +721,9 @@ export default function PatentAnalyticsView() {
                       />
                     </th>
                     <th className="p-3 text-center w-12">
-                      <span className="text-xs font-black text-slate-700 uppercase tracking-wider">View</span>
+                      <span className="text-xs font-black text-slate-700 uppercase tracking-wider">PREVIEW</span>
                     </th>
-                    {COLUMNS.filter(c => visibleColumns.includes(c.id)).map(col => (
+                    {tableColumns.filter(c => visibleColumns.includes(c.id)).map(col => (
                       <th key={col.id} className="p-3 align-top min-w-[150px]">
                         <div className="flex flex-col gap-2">
                           <div 
@@ -522,44 +737,102 @@ export default function PatentAnalyticsView() {
                               ) : <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
                             </span>
                           </div>
-                          <div className="flex gap-1">
-                            <div className="relative flex items-center w-full">
-                              <input 
-                                type="text" 
-                                placeholder="Filter..." 
-                                value={filters[col.id] || ''}
-                                onChange={(e) => handleFilterChange(col.id, e.target.value)}
-                                className="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-blue-500"
-                              />
-                              {filters[col.id] && (
-                                <button onClick={() => handleFilterChange(col.id, '')} className="absolute right-1 text-slate-400 hover:text-slate-600">
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                            <div className="relative group/char">
-                              <button className="px-2 py-1 text-xs bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 font-mono">
-                                {firstCharFilters[col.id] || '*'}
+                          {['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].includes(col.id) ? (
+                            <div className="relative group/date">
+                              <button className="px-2 py-1 text-xs bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 font-mono w-full text-left truncate">
+                                {dateFilters[col.id]?.length ? `${dateFilters[col.id].length} Years` : 'Select Years'}
                               </button>
-                              <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-slate-200 rounded shadow-xl p-2 hidden group-hover/char:flex flex-wrap gap-1 z-30">
-                                <button 
-                                  onClick={() => handleFirstCharFilterChange(col.id, '')}
-                                  className="w-full text-[10px] font-bold rounded flex items-center justify-center bg-red-100 text-red-700 hover:bg-red-200 mb-1"
-                                >
-                                  Clear
-                                </button>
-                                {'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('').map(char => (
-                                  <button 
-                                    key={char}
-                                    onClick={() => handleFirstCharFilterChange(col.id, char)}
-                                    className={`w-6 h-6 text-[10px] font-bold rounded flex items-center justify-center ${firstCharFilters[col.id] === char ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-                                  >
-                                    {char}
-                                  </button>
+                              <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded shadow-xl p-2 hidden group-hover/date:block z-30 w-48 max-h-64 overflow-y-auto">
+                                {availableYears.map(year => (
+                                  <label key={year} className="flex items-center gap-2 text-xs p-1 hover:bg-slate-100 cursor-pointer">
+                                    <input 
+                                      type="checkbox"
+                                      checked={dateFilters[col.id]?.includes(year) || false}
+                                      onChange={(e) => {
+                                        const years = dateFilters[col.id] || [];
+                                        setDateFilters(prev => ({
+                                          ...prev,
+                                          [col.id]: e.target.checked 
+                                            ? [...years, year] 
+                                            : years.filter(y => y !== year)
+                                        }));
+                                      }}
+                                    />
+                                    {year}
+                                  </label>
                                 ))}
                               </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="flex gap-1">
+                            <div className="relative group/filter w-full">
+                              <button 
+                                className="px-2 py-1 text-xs bg-white border border-slate-200 rounded hover:bg-slate-50 font-mono w-full text-left truncate"
+                                onFocus={() => setDraftFilters(prev => ({...prev, [col.id]: filters[col.id] || []}))}
+                              >
+                                {filters[col.id]?.length ? `${filters[col.id].length} Selected` : 'Select...'}
+                              </button>
+                              <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded shadow-xl p-2 hidden group-focus-within/filter:block z-30 w-48 max-h-64 overflow-y-auto">
+                                <input 
+                                  type="text"
+                                  placeholder="Search..."
+                                  className="w-full px-2 py-1 text-xs border border-slate-200 rounded mb-2"
+                                  value={filterSearch[col.id] || ''}
+                                  onChange={(e) => setFilterSearch(prev => ({ ...prev, [col.id]: e.target.value }))}
+                                />
+                                {uniqueColumnValues[col.id]?.filter(val => val.toLowerCase().includes((filterSearch[col.id] || '').toLowerCase())).map(val => (
+                                  <label key={val} className="flex items-center gap-2 text-xs p-1 hover:bg-slate-100 cursor-pointer">
+                                    <input 
+                                      type="checkbox"
+                                      checked={draftFilters[col.id]?.includes(val) || false}
+                                      onChange={() => {
+                                        const current = draftFilters[col.id] || [];
+                                        const updated = current.includes(val) 
+                                          ? current.filter(v => v !== val) 
+                                          : [...current, val];
+                                        setDraftFilters(prev => ({ ...prev, [col.id]: updated }));
+                                      }}
+                                    />
+                                    {val}
+                                  </label>
+                                ))}
+                                <button 
+                                  onClick={() => {
+                                    setFilters(prev => ({ ...prev, [col.id]: draftFilters[col.id] || [] }));
+                                    setFilterSearch(prev => ({ ...prev, [col.id]: '' }));
+                                  }}
+                                  className="w-full mt-2 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                >
+                                  Apply
+                                </button>
+                              </div>
+                            </div>
+                              {col.id !== 'applicationNumber' && (
+                                <div className="relative group/char">
+                                  <button className="px-2 py-1 text-xs bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 font-mono">
+                                    {firstCharFilters[col.id] || '*'}
+                                  </button>
+                                  <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-slate-200 rounded shadow-xl p-2 hidden group-hover/char:flex flex-wrap gap-1 z-30">
+                                    <button 
+                                      onClick={() => handleFirstCharFilterChange(col.id, '')}
+                                      className="w-full text-[10px] font-bold rounded flex items-center justify-center bg-red-100 text-red-700 hover:bg-red-200 mb-1"
+                                    >
+                                      Clear
+                                    </button>
+                                    {'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('').map(char => (
+                                      <button 
+                                        key={char}
+                                        onClick={() => handleFirstCharFilterChange(col.id, char)}
+                                        className={`w-6 h-6 text-[10px] font-bold rounded flex items-center justify-center ${firstCharFilters[col.id] === char ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                                      >
+                                        {char}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </th>
                     ))}
@@ -582,17 +855,17 @@ export default function PatentAnalyticsView() {
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Preview Patent"
                         >
-                          <Maximize2 className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                       </td>
-                      {COLUMNS.filter(c => visibleColumns.includes(c.id)).map(col => {
+                      {tableColumns.filter(c => visibleColumns.includes(c.id)).map(col => {
                         const val = (patent as any)[col.id];
                         const displayVal = Array.isArray(val) ? val.join(', ') : String(val || '');
                         
                         return (
                           <td 
                             key={col.id} 
-                            className="p-3 text-sm text-slate-600 max-w-[200px] truncate"
+                            className="p-3 text-sm text-slate-600 max-w-[200px] truncate cursor-pointer hover:bg-slate-100"
                             onMouseEnter={(e) => {
                               const rect = e.currentTarget.getBoundingClientRect();
                               setHoveredCell({
@@ -604,17 +877,19 @@ export default function PatentAnalyticsView() {
                               });
                             }}
                             onMouseLeave={() => setHoveredCell(null)}
+                            onClick={() => setFullTextPopup({ content: displayVal, title: col.label })}
                           >
                             {col.id === 'applicationNumber' ? (
-                              <a 
-                                href={patent.actualApplicationNumber ? `https://patentcenter.uspto.gov/applications/${patent.actualApplicationNumber}` : `https://patentcenter.uspto.gov/patents/${patent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 font-bold hover:underline flex items-center gap-1"
-                                title="View on USPTO Patent Center"
-                              >
-                                {displayVal} <ExternalLink className="w-3 h-3" />
-                              </a>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold">{displayVal}</span>
+                                <button 
+                                  onClick={() => navigator.clipboard.writeText(displayVal)}
+                                  className="text-slate-400 hover:text-blue-600 transition-colors"
+                                  title="Copy Application Number"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              </div>
                             ) : (
                               displayVal
                             )}
@@ -654,7 +929,7 @@ export default function PatentAnalyticsView() {
                 top: hoveredCell.y + 10 
               }}
             >
-              <div className="font-bold text-slate-400 mb-1">{COLUMNS.find(c => c.id === hoveredCell.colId)?.label}</div>
+              <div className="font-bold text-slate-400 mb-1">{tableColumns.find(c => c.id === hoveredCell.colId)?.label}</div>
               <div className="break-words whitespace-pre-wrap">{hoveredCell.content}</div>
             </div>
           )}
@@ -662,8 +937,16 @@ export default function PatentAnalyticsView() {
           {/* Preview Modal */}
           {previewPatent && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+              <div 
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 cursor-move"
+                style={{
+                  transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)`,
+                }}
+              >
+                <div 
+                  className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50 cursor-move"
+                  onMouseDown={handleMouseDown}
+                >
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded-full">
@@ -678,7 +961,10 @@ export default function PatentAnalyticsView() {
                     </h2>
                   </div>
                   <button 
-                    onClick={() => setPreviewPatent(null)}
+                    onClick={() => {
+                      setPreviewPatent(null);
+                      setModalPosition({ x: 0, y: 0 });
+                    }}
                     className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
                   >
                     <X className="w-5 h-5" />
@@ -720,6 +1006,25 @@ export default function PatentAnalyticsView() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patent Type</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.patentType || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patent Kind</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.patentKind || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">PCT Doc Number</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.pctDocNumber || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">PCT Date</h4>
+                      <p className="text-sm font-bold text-slate-700">{previewPatent.pctDate || 'N/A'}</p>
+                    </div>
+                  </div>
+
                   <div className="mb-8">
                     <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Abstract</h4>
                     <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -737,38 +1042,166 @@ export default function PatentAnalyticsView() {
                   )}
                 </div>
                 
-                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
-                  {previewPatent.pdfUrl && (
-                    <a
-                      href={previewPatent.pdfUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 flex items-center gap-2 transition-colors"
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                  <a 
+                    href={`https://patents.google.com/?q=${encodeURIComponent(`(${previewPatent.title || ''}) AND ${previewPatent.applicationNumber}`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"
+                  >
+                    Google Patent Search <Search className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Full Text Popup Modal */}
+          {fullTextPopup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                  <h3 className="text-lg font-black text-slate-900">{fullTextPopup.title}</h3>
+                  <button 
+                    onClick={() => setFullTextPopup(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 overflow-y-auto flex-1">
+                  <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{fullTextPopup.content}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Comparison Modal */}
+          {comparisonPopup && (
+            <div 
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+            >
+              <div 
+                className="bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 relative"
+                style={{ 
+                  width: `${comparisonModalSize.width}px`, 
+                  height: `${comparisonModalSize.height}px`,
+                  transform: `translate(${modalPosition.x}px, ${modalPosition.y}px)`
+                }}
+              >
+                <div 
+                  className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 cursor-move"
+                  onMouseDown={handleMouseDown}
+                >
+                  <h3 className="text-lg font-black text-slate-900">Patent Comparison ({comparisonPopup.length})</h3>
+                  <button 
+                    onClick={() => setComparisonPopup(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 overflow-x-auto flex-1">
+                  <div className="mb-6 flex gap-2">
+                    <input 
+                      type="text" 
+                      value={aiQuery}
+                      onChange={(e) => setAiQuery(e.target.value)}
+                      placeholder="Ask AI about these patents..."
+                      className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button 
+                      onClick={async () => {
+                        if (!aiQuery) return;
+                        setIsAiLoading(true);
+                        try {
+                          const result = await generatePatentComparisonSummary(comparisonPopup, aiQuery);
+                          setAiResponsePopup(result);
+                        } finally {
+                          setIsAiLoading(false);
+                        }
+                      }}
+                      disabled={isAiLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 disabled:bg-slate-400"
                     >
-                      Download PDF <FileText className="w-4 h-4" />
-                    </a>
-                  )}
-                  <div className="flex gap-2 ml-auto">
-                    {previewPatent.url ? (
-                      <a 
-                        href={previewPatent.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"
-                      >
-                        View Original Source <ExternalLink className="w-4 h-4" />
-                      </a>
-                    ) : (
-                      <a 
-                        href={`https://patents.google.com/patent/US${previewPatent.applicationNumber.replace(/[^a-zA-Z0-9]/g, '')}/en`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"
-                      >
-                        Search on Google Patents <ExternalLink className="w-4 h-4" />
-                      </a>
-                    )}
+                      {isAiLoading ? 'Generating...' : 'Generate'}
+                    </button>
                   </div>
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase">Attribute</th>
+                        {comparisonPopup.map(p => (
+                          <th key={p.applicationNumber} className="p-3 border-b border-slate-200 text-xs font-black text-slate-900 uppercase">{p.applicationNumber}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableColumns.map(col => (
+                        <tr key={col.id} className="hover:bg-slate-50">
+                          <td className="p-3 border-b border-slate-100 text-sm font-bold text-slate-700">{col.label}</td>
+                          {comparisonPopup.map(p => (
+                            <td key={p.applicationNumber} className="p-3 border-b border-slate-100 text-sm text-slate-600">
+                              {String(p[col.id as keyof Patent] || 'N/A')}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Resize Handle */}
+                <div 
+                  className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize bg-slate-200 rounded-tl-lg flex items-center justify-center"
+                  onMouseDown={(e) => {
+                    setIsResizing(true);
+                    setResizeOffset({
+                      x: e.clientX - comparisonModalSize.width,
+                      y: e.clientY - comparisonModalSize.height
+                    });
+                  }}
+                >
+                  <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400"></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI Response Popup */}
+          {aiResponsePopup && (
+            <div 
+              className="fixed z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm cursor-move"
+              style={{
+                transform: `translate(${aiResponsePopupPosition.x}px, ${aiResponsePopupPosition.y}px)`,
+                width: '600px',
+                height: '400px',
+                top: '100px',
+                left: '100px'
+              }}
+            >
+              <div className="bg-white rounded-3xl shadow-2xl w-full h-full flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                <div 
+                  className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 cursor-move"
+                  onMouseDown={handleAiMouseDown}
+                >
+                  <h3 className="text-lg font-black text-slate-900">AI Analysis</h3>
+                  <button 
+                    onClick={() => setAiResponsePopup(null)}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 overflow-y-auto flex-1">
+                  <p className="text-sm text-slate-700 leading-relaxed mb-4">{aiResponsePopup.summary}</p>
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">References</h4>
+                  <ul className="space-y-2">
+                    {aiResponsePopup.references.map((ref, idx) => (
+                      <li key={idx}>
+                        <a href={ref.url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">{ref.title}</a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>

@@ -396,12 +396,13 @@ app.get("/api/patents/patentsview", async (req, res) => {
 
   const userQuery = req.query.q as string;
   const inventor = req.query.inventor as string;
+  const inventorFirstName = req.query.inventorFirstName as string;
   const applicant = req.query.applicant as string;
   const startDate = req.query.startDate as string;
   const endDate = req.query.endDate as string;
   const size = req.query.size ? parseInt(req.query.size as string, 10) : 25;
 
-  if (!userQuery && !inventor && !applicant && !startDate && !endDate) {
+  if (!userQuery && !inventor && !inventorFirstName && !applicant && !startDate && !endDate) {
     return res.status(400).json({ error: "Missing search parameters." });
   }
 
@@ -409,7 +410,8 @@ app.get("/api/patents/patentsview", async (req, res) => {
     const conditions: any[] = [];
     if (userQuery) conditions.push({ "_text_all": { "patent_title": userQuery } });
     if (inventor) conditions.push({ "_text_all": { "inventors.inventor_name_last": inventor } });
-    if (applicant) conditions.push({ "_text_all": { "assignees.assignee_organization": applicant } });
+    if (inventorFirstName) conditions.push({ "_text_all": { "inventors.inventor_name_first": inventorFirstName } });
+    if (applicant) conditions.push({ "_text_phrase": { "assignees.assignee_organization": applicant } });
     if (startDate) conditions.push({ "_gte": { "patent_date": startDate } });
     if (endDate) conditions.push({ "_lte": { "patent_date": endDate } });
 
@@ -429,14 +431,23 @@ app.get("/api/patents/patentsview", async (req, res) => {
       "patent_date",
       "patent_abstract",
       "patent_earliest_application_date",
+      "patent_type",
       "assignees.assignee_organization",
       "assignees.assignee_individual_name_first",
       "assignees.assignee_individual_name_last",
       "assignees.assignee_country",
       "inventors.inventor_name_first",
       "inventors.inventor_name_last",
+      "inventors.inventor_country",
+      "inventors.inventor_state",
       "application.filing_date",
-      "application.application_id"
+      "application.application_id",
+      "pct_data.pct_docnumber",
+      "pct_data.pct_kind",
+      "pct_data.pct_date",
+      "pct_data.pct_371_date",
+      "pct_data.pct_102_date",
+      "pct_data.published_filed_date"
     ]);
     const oParam = JSON.stringify({ "size": Math.min(size, 100) });
 

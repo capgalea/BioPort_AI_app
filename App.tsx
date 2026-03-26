@@ -345,6 +345,7 @@ function App() {
   const [status, setStatus] = useState<AnalysisStatus>('idle');
   const [progress, setProgress] = useState<{ current: number, total: number, message: string } | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null);
+  const [patentAnalyticsCompany, setPatentAnalyticsCompany] = useState<string | null>(null);
   const [selectedResearcher, setSelectedResearcher] = useState<any | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -814,7 +815,10 @@ function App() {
     setView('home'); 
   };
 
-  const navigateTo = (v: ViewMode, mode: 'login' | 'register' = 'login') => {
+  const navigateTo = (v: ViewMode, mode: 'login' | 'register' = 'login', companyName?: string) => {
+    if (companyName) {
+      setPatentAnalyticsCompany(companyName);
+    }
     if (!['home', 'login', 'overview', 'systemInfo', 'howToNavigate', 'changelog', 'pamphlet', 'intelligence'].includes(v) && !session) {
       setLoginMode(mode); 
       setView('login');
@@ -917,12 +921,11 @@ function App() {
                         </div>
                         <div className="px-4 py-2">
                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Patents</div>
-                           <button onClick={() => navigateTo('patents')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><FileText className="w-4 h-4" /> Search</button>
-                           <button onClick={() => navigateTo('patentSearchAgent')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><Bot className="w-4 h-4" /> Patent Search Agent</button>
-                           <div className="mt-2 ml-7 flex flex-col gap-1">
-                              <button onClick={() => navigateTo('patentAnalytics')} className="w-full text-left text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-2"><PieChart className="w-3 h-3" /> Analytics</button>
-                           </div>
-                           <button onClick={() => navigateTo('prospectGenerator')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors mt-4"><UserPlus className="w-4 h-4" /> Prospect Generator</button>
+                           <button onClick={() => navigateTo('patentAnalytics')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><PieChart className="w-4 h-4" /> Analytics</button>
+                        </div>
+                        <div className="px-4 py-2">
+                           <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Customer</div>
+                           <button onClick={() => navigateTo('prospectGenerator')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><UserPlus className="w-4 h-4" /> Prospect Generator</button>
                         </div>
                      </div>
                    </div>
@@ -1128,10 +1131,9 @@ function App() {
                 <NewsFeed />
              </div>
           )}
-          {view === 'patents' && <PatentsView />}
-          {view === 'patentAnalytics' && <PatentAnalyticsView />}
-          {view === 'patentSearch' && <PatentSearchPage />}
-          {view === 'patentSearchAgent' && <PatentSearchAgent />}
+
+          {view === 'patentAnalytics' && <PatentAnalyticsView initialCompany={patentAnalyticsCompany || undefined} />}
+
           {view === 'employment' && <EmploymentView />}
           {view === 'systemInfo' && <SystemInfoView />}
           {view === 'howToNavigate' && <SystemTutorialView onStartSearch={() => setView('discovery')} />}
@@ -1142,7 +1144,10 @@ function App() {
       </main>
 
       <Suspense fallback={null}>
-        {selectedCompany && <DetailModal company={selectedCompany} onClose={() => setSelectedCompany(null)} onResearcherClick={(n, i, b) => {
+        {selectedCompany && <DetailModal company={selectedCompany} onClose={() => setSelectedCompany(null)} onPatentSearchClick={(companyName) => {
+            navigateTo('patentAnalytics', 'login', companyName);
+            setSelectedCompany(null);
+        }} onResearcherClick={(n, i, b) => {
             setSelectedResearcher({name: n, institution: i, bio: b});
             posthog.capture('view_researcher_detail', { researcher_name: n });
         }} onProductClick={(p) => {

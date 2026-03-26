@@ -4,6 +4,7 @@ import { fetchPatentsFromPatentsView } from './patentsViewService.ts';
 
 export interface PatentFilters {
   inventor?: string;
+  inventorFirstName?: string;
   applicant?: string;
   startDate?: string;
   endDate?: string;
@@ -11,16 +12,16 @@ export interface PatentFilters {
 
 /**
  * PatentService handles fetching and processing patent data.
- * Integrates with PatentsView API.
+ * Integrates with PatentView API.
  */
 class PatentService {
   /**
-   * Fetches patents for a specific company or topic from PatentsView.
+   * Fetches patents for a specific company or topic from PatentView.
    */
-  async getPatents(query: string, filters?: PatentFilters): Promise<Patent[]> {
+  async getPatents(query: string, filters?: PatentFilters, limit?: number): Promise<Patent[]> {
     console.log(`Fetching patents for: ${query}`);
     try {
-      return await fetchPatentsFromPatentsView(query, filters);
+      return await fetchPatentsFromPatentsView(query, filters, limit);
     } catch (error: any) {
       console.error("PatentService Error:", error);
       throw error;
@@ -31,10 +32,6 @@ class PatentService {
    * Analyzes patent landscape for a technology sector.
    */
   async analyzeLandscape(sector: string): Promise<string> {
-    // This function seems to be using an LLM to generate a summary.
-    // The user said: "It should not use an AI agent / LLM for retrieving patent data"
-    // I should probably keep this if it's for analysis, but the user said "retrieving patent data".
-    // I will keep it for now as it doesn't seem to be retrieving data, but analyzing it.
     return `The patent landscape for ${sector} is characterized by high activity in mRNA delivery and targeted protein degradation. Major players include established biopharma and emerging biotech startups.`;
   }
 }
