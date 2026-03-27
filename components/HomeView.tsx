@@ -100,17 +100,8 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
       image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=800&auto=format&fit=crop"
     },
     {
-      title: "Talent Node",
-      description: "Find scientific opportunities matched to specific research domains.",
-      icon: <Briefcase className="w-5 h-5 text-white" />,
-      action: () => onNavigate('employment'),
-      btnText: "Find Roles",
-      color: "from-amber-500 to-orange-500",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop"
-    },
-    {
       title: "Prospect Generator",
-      description: "Generate and manage customer prospects for your biotech outreach.",
+      description: "Generate and manage customer prospects for your biotech outreach. Now supporting US (PatentsView) and Australian (IP Australia) patent data.",
       icon: <UserPlus className="w-5 h-5 text-white" />,
       action: () => onNavigate('prospectGenerator'),
       btnText: "Generate Prospects",

@@ -31,11 +31,13 @@ graph TD
         Tools -->|Registry Query| SQL[AACT Virtual SQL Agent]
         Tools -->|Literature| PubMed[PubMed API Call]
         Tools -->|Drug Data| DrugDB[Drug Registry API]
+        Tools -->|Patent Data| IPA[IP Australia API]
         
         Search --> Synthesis[Data Aggregation]
         SQL --> Synthesis
         PubMed --> Synthesis
         DrugDB --> Synthesis
+        IPA --> Synthesis
     end
 
     Synthesis --> Verification{Source Integrity Check}

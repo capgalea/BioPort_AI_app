@@ -130,9 +130,9 @@ const ArchitectureView: React.FC = () => {
                 />
                 <ArchNode 
                   title="Public Registries" 
-                  subtitle="AACT + PubMed + G-Search" 
+                  subtitle="AACT + PubMed + G-Search + IP Australia" 
                   icon={<Globe className="text-purple-600" />}
-                  desc="Live grounding nodes for clinical, drug, and academic verification via Google Search and primary APIs."
+                  desc="Live grounding nodes for clinical, drug, academic, and patent verification via Google Search and primary APIs."
                   status="Connected"
                   glow="purple"
                 />

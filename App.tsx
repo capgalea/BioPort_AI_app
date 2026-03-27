@@ -16,7 +16,6 @@ import posthog from 'posthog-js';
 
 // Lazy load heavy components to speed up initial boot and prevent workspace timeouts
 const DetailModal = lazy(() => import('./components/DetailModal'));
-const AboutView = lazy(() => import('./components/AboutView'));
 const AboutUsView = lazy(() => import('./components/AboutUsView'));
 const OverviewView = lazy(() => import('./components/OverviewView'));
 const AgentView = lazy(() => import('./components/AgentView'));
@@ -882,10 +881,9 @@ function App() {
                <button onClick={() => navigateTo('home')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${view === 'home' ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}><Home className="w-4 h-4" /> <span className="hidden lg:inline">Home</span></button>
                
                <div className="relative group/sys">
-                  <button className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${['about', 'aboutUs', 'overview', 'howToNavigate', 'changelog', 'pamphlet', 'systemInfo'].includes(view) ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}><HelpIcon className="w-4 h-4" /> <span className="hidden lg:inline">About</span> <ChevronDown className="w-3 h-3 opacity-50" /></button>
+                  <button className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${['aboutUs', 'overview', 'howToNavigate', 'changelog', 'pamphlet', 'systemInfo'].includes(view) ? 'bg-blue-50 text-blue-700' : 'text-slate-500 hover:bg-slate-50'}`}><HelpIcon className="w-4 h-4" /> <span className="hidden lg:inline">About</span> <ChevronDown className="w-3 h-3 opacity-50" /></button>
                   <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 invisible group-hover/sys:visible opacity-0 group-hover/sys:opacity-100 transition-all z-50">
                     <button onClick={() => navigateTo('aboutUs')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><UserIcon className="w-4 h-4" /> About Us</button>
-                    <button onClick={() => navigateTo('about')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Sparkles className="w-4 h-4" /> Project Vision</button>
                     <button onClick={() => navigateTo('overview')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Info className="w-4 h-4" /> Overview</button>
                     <button onClick={() => navigateTo('howToNavigate')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><PlayCircle className="w-4 h-4" /> System Tutorial</button>
                     <button onClick={() => navigateTo('changelog')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><History className="w-4 h-4" /> Changelog</button>
@@ -963,7 +961,6 @@ function App() {
         <Suspense fallback={<ViewLoading />}>
           {view === 'prospectGenerator' && <ProspectGenerator />}
           {view === 'home' && <HomeView session={session} isGuest={false} onLoginSuccess={() => {}} onGuestAccess={() => {}} onNavigate={(v) => navigateTo(v === 'search' ? 'discovery' : v as any)} />}
-          {view === 'about' && <AboutView />}
           {view === 'aboutUs' && <AboutUsView />}
           {view === 'login' && <div className="max-w-md mx-auto pt-12"><LoginView initialMode={loginMode} onLoginSuccess={() => setView('home')} onGuestAccess={() => {}} onBack={() => setView('home')} /></div>}
           {view === 'overview' && <OverviewView onNavigateToSystemInfo={() => setView('systemInfo')} />}

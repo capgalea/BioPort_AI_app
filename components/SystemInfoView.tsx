@@ -1,37 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { Info, Code, MapPin, User, Calendar, ShieldCheck, Zap, Globe, Github, Cpu, Database, Fingerprint, Activity, BarChart, Users, Clock } from 'lucide-react';
+import { Info, Code, MapPin, User, Calendar, ShieldCheck, Zap, Globe, Github, Cpu, Database, Fingerprint } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService.ts';
 
 const SystemInfoView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'specs' | 'usage'>('specs');
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [loadingUsage, setLoadingUsage] = useState(false);
-
   const currentDate = new Date().toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
 
-  useEffect(() => {
-    if (activeTab === 'usage') {
-      const loadAnalytics = async () => {
-        setLoadingUsage(true);
-        const data = await supabaseService.getUsageAnalytics();
-        setAnalytics(data);
-        setLoadingUsage(false);
-      };
-      loadAnalytics();
-    }
-  }, [activeTab]);
-
   const techStack = [
     { name: 'Core Engine', detail: 'React 19.2.1 (Concurrent Mode)', icon: <Cpu className="w-4 h-4" /> },
     { name: 'Intelligence', detail: 'Google Gemini 3.0 Pro & Flash', icon: <Zap className="w-4 h-4" /> },
     { name: 'Persistence', detail: 'Supabase Cloud (PostgreSQL)', icon: <Database className="w-4 h-4" /> },
     { name: 'Interface', detail: 'Tailwind CSS v4-alpha', icon: <Code className="w-4 h-4" /> },
-    { name: 'Mapping', detail: 'Leaflet.js + Google Tiles', icon: <Globe className="w-4 h-4" /> }
+    { name: 'Patent Data', detail: 'PatentsView & IP Australia API', icon: <Globe className="w-4 h-4" /> }
   ];
 
   return (
@@ -52,26 +36,16 @@ const SystemInfoView: React.FC = () => {
               
               {/* Tab Toggle */}
               <div className="flex bg-slate-800 p-1 rounded-xl">
-                 <button 
-                   onClick={() => setActiveTab('specs')}
-                   className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'specs' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                 >
+                 <div className="px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-lg">
                    Specs
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('usage')}
-                   className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'usage' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                 >
-                   Usage Telemetry
-                 </button>
+                 </div>
               </div>
             </div>
           </div>
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         </div>
 
-        {activeTab === 'specs' ? (
-          <div className="p-8 sm:p-12 space-y-12 animate-in fade-in slide-in-from-right-4">
+        <div className="p-8 sm:p-12 space-y-12 animate-in fade-in slide-in-from-right-4">
             
             {/* Core Identity Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -166,99 +140,6 @@ const SystemInfoView: React.FC = () => {
                </p>
             </div>
           </div>
-        ) : (
-          <div className="p-8 sm:p-12 space-y-12 animate-in fade-in slide-in-from-right-4">
-             {loadingUsage ? (
-               <div className="text-center py-20 text-slate-400">Loading Telemetry...</div>
-             ) : analytics ? (
-               <>
-                 {/* Top Metrics */}
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl">
-                       <div className="flex items-center gap-3 mb-4 text-emerald-600">
-                          <Activity className="w-5 h-5" />
-                          <h4 className="text-xs font-black uppercase tracking-widest">Total Actions</h4>
-                       </div>
-                       <div className="text-3xl font-black text-slate-900">{analytics.totalLogs.toLocaleString()}</div>
-                       <div className="text-[10px] text-slate-400 font-bold mt-2">Verified Interactions</div>
-                    </div>
-                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl">
-                       <div className="flex items-center gap-3 mb-4 text-blue-600">
-                          <Users className="w-5 h-5" />
-                          <h4 className="text-xs font-black uppercase tracking-widest">Unique Users</h4>
-                       </div>
-                       <div className="text-3xl font-black text-slate-900">{analytics.uniqueUsers.toLocaleString()}</div>
-                       <div className="text-[10px] text-slate-400 font-bold mt-2">Active Accounts</div>
-                    </div>
-                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-3xl">
-                       <div className="flex items-center gap-3 mb-4 text-indigo-600">
-                          <Clock className="w-5 h-5" />
-                          <h4 className="text-xs font-black uppercase tracking-widest">Platform Status</h4>
-                       </div>
-                       <div className="text-3xl font-black text-slate-900">Live</div>
-                       <div className="text-[10px] text-slate-400 font-bold mt-2">Telemetry Online</div>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Top Actions Chart */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
-                       <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                          <BarChart className="w-4 h-4 text-slate-400" /> Top System Actions
-                       </h3>
-                       <div className="space-y-4">
-                          {analytics.topActions.map((action: any, idx: number) => {
-                             const maxVal = Math.max(...analytics.topActions.map((a: any) => a.count));
-                             const widthPct = (action.count / maxVal) * 100;
-                             return (
-                               <div key={idx}>
-                                  <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
-                                     <span>{action.type}</span>
-                                     <span className="text-slate-400">{action.count}</span>
-                                  </div>
-                                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                                     <div className="bg-blue-600 h-full rounded-full" style={{ width: `${widthPct}%` }}></div>
-                                  </div>
-                               </div>
-                             );
-                          })}
-                       </div>
-                    </div>
-
-                    {/* Recent Activity Stream */}
-                    <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm flex flex-col h-[400px]">
-                       <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                          <Database className="w-4 h-4 text-slate-400" /> Recent Stream
-                       </h3>
-                       <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                          {analytics.recentLogs.map((log: any) => (
-                             <div key={log.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-                                <div className="flex justify-between items-start mb-1">
-                                   <span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-1.5 rounded">{log.action_type}</span>
-                                   <span className="text-[10px] font-mono text-slate-400">{new Date(log.created_at).toLocaleTimeString()}</span>
-                                </div>
-                                <div className="text-xs text-slate-600 font-medium truncate">
-                                   {log.user_email || 'Guest'}
-                                </div>
-                                {log.details && Object.keys(log.details).length > 0 && (
-                                   <div className="mt-1.5 text-[9px] text-slate-400 font-mono bg-white p-1.5 rounded border border-slate-100 truncate">
-                                      {JSON.stringify(log.details)}
-                                   </div>
-                                )}
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
-               </>
-             ) : (
-               <div className="text-center py-20 text-slate-400">
-                 <p className="font-bold">No telemetry data found.</p>
-                 <p className="text-xs mt-2">Connect a database to enable analytics.</p>
-               </div>
-             )}
-          </div>
-        )}
 
         <div className="p-8 bg-slate-50 border-t border-slate-100 text-center">
            <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.4em]">

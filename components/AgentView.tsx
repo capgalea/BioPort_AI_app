@@ -94,7 +94,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
     setMessages([
       { 
         role: 'model', 
-        content: "Hello! I'm the BioPort AI Agent. I can help you analyze your data, search for academic literature, retrieve patent data from USPTO and IP Australia, or generate comprehensive disease reviews. How can I assist you today?",
+        content: "Hello! I'm the BioPort AI Agent. I can help you analyze your data, search for academic literature, retrieve patent data from USPTO, IP Australia, and chemical data from PubChem, or generate comprehensive disease reviews. How can I assist you today?",
         timestamp: Date.now()
       }
     ]);

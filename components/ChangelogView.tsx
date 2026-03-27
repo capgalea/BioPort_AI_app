@@ -16,7 +16,11 @@ const ChangelogView: React.FC = () => {
     const fetchChangelog = async () => {
       setIsLoading(true);
       const data = await supabaseService.getChangelog();
-      setEntries(data || []);
+      // Filter out entries with epoch date (1970-01-01)
+      const filteredData = (data || []).filter(entry => 
+        new Date(entry.comments_updated_at).getFullYear() > 1970
+      );
+      setEntries(filteredData);
       setIsLoading(false);
     };
     fetchChangelog();

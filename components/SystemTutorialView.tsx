@@ -65,10 +65,10 @@ const SystemTutorialView: React.FC<SystemTutorialViewProps> = ({ onStartSearch }
       case 2:
         return {
           headline: "Intelligence Discovery",
-          body: "Use the 'Discovery' tab to input lists of entities (e.g. competitors, acquisition targets) or search entire therapeutic sectors (e.g. 'Gene Therapy'). The system will automatically build initial profiles.",
-          tip: "The engine automatically filters out common corporate suffixes (Inc, Ltd) to improve grounding accuracy.",
+          body: "Use the 'Discovery' tab to input lists of entities (e.g. competitors, acquisition targets) or search entire therapeutic sectors (e.g. 'Gene Therapy'). The system will automatically build initial profiles, now supporting both global PatentsView and Australian IP Australia patent data.",
+          tip: "Toggle between PatentsView and IP Australia data sources in the Prospect Generator to broaden your search scope.",
           featureIcon: <Globe className="w-8 h-8 text-blue-500" />,
-          featureText: "Global Entity Recognition"
+          featureText: "Global & Regional Patent Search"
         };
       case 3:
         return {

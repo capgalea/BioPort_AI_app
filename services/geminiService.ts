@@ -285,11 +285,14 @@ export const fetchAllClinicalTrials = async (companyName: string): Promise<Pipel
   1. Official Corporate Pipeline Pages (Latest).
   2. ClinicalTrials.gov Registry entries.
   3. Recent Press Releases (2024-2025).
+  4. IP Australia Patent Database (for patent-backed drug development).
+  5. PubChem (for chemical structure and compound validation).
   
   EXECUTION STRATEGY:
   1. Identify all program codes (e.g. mRNA-1273, V940) and generic names.
   2. Map each to its current Indication and Phase.
   3. Find specific NCT IDs (ClinicalTrials.gov identifiers) where available.
+  4. Use IP Australia and PubChem to verify drug development and chemical properties.
   
   Return a JSON object with key "trials" containing an array of objects with: drugName, indication, phase, nctId, status.
   `;
@@ -773,8 +776,8 @@ export const performDrugDeepSearch = async (
     
     INSTRUCTIONS:
     1. Each query can be a **Drug Name** OR a **Disease/Medical Condition**.
-    2. If it is a DRUG: Return its specific profile.
-    3. If it is a DISEASE: Identify top 1-2 standard-of-care approved drugs for this condition and return a profile for EACH drug.
+    2. If it is a DRUG: Return its specific profile, including chemical data from PubChem and patent data from IP Australia.
+    3. If it is a DISEASE: Identify top 1-2 standard-of-care approved drugs for this condition and return a profile for EACH drug, including chemical data from PubChem and patent data from IP Australia.
     4. ZERO HALLUCINATION POLICY: DO NOT invent, guess, or create dummy data. If specific information (like a SMILES string, a PubChem CID, or recent research) cannot be found in the search results, return an empty string, null, or an empty array [] for that field. ONLY return factual data backed by the search results.
     
     Return a flat JSON array of drug profiles.`;

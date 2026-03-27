@@ -83,14 +83,13 @@ async function getAccessToken() {
   try {
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
-
-    const auth = Buffer.from(`${IP_AU_CLIENT_ID}:${IP_AU_CLIENT_SECRET}`).toString('base64');
+    params.append('client_id', IP_AU_CLIENT_ID!);
+    params.append('client_secret', IP_AU_CLIENT_SECRET!);
 
     const response = await withExponentialBackoff(() => 
       axios.post(TOKEN_URL, params.toString(), {
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `Basic ${auth}`
+          "Content-Type": "application/x-www-form-urlencoded"
         },
       })
     );
@@ -227,12 +226,32 @@ app.post("/api/patents/search", async (req, res) => {
     res.json({ results: detailedPatents });
   } catch (error: any) {
     const errorData = error.response?.data || error.message || error;
-    logDebug("Patent search error, attempting SerpApi fallback:", errorData);
+    logDebug("Patent search error:", errorData);
     
+    // Check if it's an authentication error from IP Australia
+    if (error.message && error.message.includes("Failed to authenticate with IP Australia")) {
+      return res.status(401).json({
+        error: "Authentication failed",
+        details: errorData
+      });
+    }
+
     res.status(500).json({
       error: typeof errorData === 'string' ? errorData : "Failed to retrieve patent data",
       details: errorData
     });
+  }
+});
+
+app.post("/api/pubchem/search", async (req, res) => {
+  const { query } = req.body;
+  logDebug(`PubChem search request for: ${query}`);
+  try {
+    const response = await axios.get(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(query)}/cids/JSON`);
+    res.json(response.data);
+  } catch (error: any) {
+    logDebug("PubChem search error:", error.message);
+    res.status(500).json({ error: "Failed to retrieve PubChem data" });
   }
 });
 
@@ -482,10 +501,12 @@ app.get("/api/patents/patentsview", async (req, res) => {
     const [patentResponse, pubResponse] = await Promise.all([
       axios.get(patentUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
         logDebug("Patent fetch error:", e.response?.data || e.message);
+        if (e.response?.status === 401 || e.response?.status === 403 || e.response?.status === 429) throw e;
         return { data: { patents: [], count: 0, total_patent_count: 0 } };
       }),
       axios.get(pubUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
         logDebug("Publication fetch error:", e.response?.data || e.message);
+        if (e.response?.status === 401 || e.response?.status === 403 || e.response?.status === 429) throw e;
         return { data: { publications: [], count: 0, total_hits: 0 } };
       })
     ]);
@@ -511,8 +532,9 @@ app.get("/api/patents/patentsview", async (req, res) => {
     });
   } catch (error: any) {
     const errorData = error.response?.data || error.message || error;
+    const status = error.response?.status || 500;
     logDebug("PatentsView API Error:", errorData);
-    res.status(500).json({
+    res.status(status).json({
       error: "Failed to retrieve patent data from PatentsView",
       details: errorData
     });

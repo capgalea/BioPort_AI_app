@@ -1,4 +1,6 @@
 import React, { useState, useCallback } from "react";
+import { fetchPatentsFromPatentsView } from "../services/patentsViewService";
+import { Patent as GlobalPatent } from "../types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -289,6 +291,7 @@ const SEARCH_TERMS = [
 export default function ProspectGenerator() {
   const [query, setQuery] = useState("cancer immunotherapy");
   const [customQuery, setCustomQuery] = useState("");
+  const [source, setSource] = useState<"patentsview" | "ipaustralia">("patentsview");
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -311,44 +314,97 @@ export default function ProspectGenerator() {
     setOutreachDraft(null);
 
     try {
-      const response = await fetch("/api/patents/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: effectiveQuery, source: "patentsview" }),
-      });
+      let raw: Patent[] = [];
+      if (source === "patentsview") {
+        raw = await fetchPatentsFromPatentsView(effectiveQuery, undefined, 40) as any;
+      } else {
+        const response = await fetch("/api/patents/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: effectiveQuery, source: "ipaustralia" }),
+        });
 
-      if (!response.ok) throw new Error(`API error: ${response.status}`);
-      const data = await response.json();
-      const raw: Patent[] = data.results || [];
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        const data = await response.json();
+        raw = data.results || [];
+      }
 
       if (raw.length === 0) throw new Error("No patents found");
 
-      const generated = patentsToProspects(raw);
+      const generated = patentsToProspects(raw as any);
       setProspects(generated.slice(0, 40));
       setUsedMock(false);
     } catch (err: any) {
-      setProspects([]);
-      setUsedMock(false);
-      
-      let errorMessage = err.message;
-      if (err.message.includes("401") || err.message.includes("403")) {
-        errorMessage = "Authentication error. Please verify your PATENTSVIEW_API_KEY in the .env file.";
-      } else if (err.message.includes("429")) {
-        errorMessage = "Rate limit exceeded. Please wait 60 seconds and try again.";
-      } else if (err.message.includes("500")) {
-        errorMessage = "PatentsView API error. Please check the PatentsView API status page.";
-      } else if (err.message === "No patents found") {
-        errorMessage = "Zero results returned from the live PatentsView database. Please try refining your query.";
+      if (source === "ipaustralia") {
+        // Fallback to mock data for IP Australia if API fails
+        const mockRaw = [
+          {
+            id: "AU2023100123",
+            applicationNumber: "AU2023100123",
+            title: `Australian Innovation in ${effectiveQuery}`,
+            abstract: `A novel approach to ${effectiveQuery} developed in Australia.`,
+            status: "Granted",
+            dateFiled: "2023-01-15",
+            dateGranted: "2024-02-20",
+            inventors: ["Dr. Sarah Smith", "Prof. John Doe"],
+            applicants: ["University of Melbourne", "CSIRO"],
+            owners: ["University of Melbourne"],
+            familyJurisdictions: ["AU", "US", "EP"]
+          },
+          {
+            id: "AU2022200456",
+            applicationNumber: "AU2022200456",
+            title: `System and Method for ${effectiveQuery}`,
+            abstract: `An advanced system for improving ${effectiveQuery} outcomes.`,
+            status: "Published",
+            dateFiled: "2022-05-10",
+            inventors: ["Dr. Emily Chen"],
+            applicants: ["Monash University"],
+            owners: ["Monash University"],
+            familyJurisdictions: ["AU", "NZ"]
+          },
+          {
+            id: "AU2024100789",
+            applicationNumber: "AU2024100789",
+            title: `Next Generation ${effectiveQuery} Technology`,
+            abstract: `Next generation technology utilizing ${effectiveQuery}.`,
+            status: "Granted",
+            dateFiled: "2024-03-01",
+            dateGranted: "2025-01-10",
+            inventors: ["Dr. Michael Brown"],
+            applicants: ["Garvan Institute of Medical Research"],
+            owners: ["Garvan Institute of Medical Research"],
+            familyJurisdictions: ["AU", "US", "JP"]
+          }
+        ];
+        const generated = patentsToProspects(mockRaw as any);
+        setProspects(generated);
+        setUsedMock(true);
+        setError(`IP Australia API unavailable (${err.message}). Showing mock Australian data for demonstration.`);
       } else {
-        errorMessage = `Live API unavailable (${err.message}). Please verify your PATENTSVIEW_API_KEY.`;
+        setProspects([]);
+        setUsedMock(false);
+        
+        let errorMessage = err.message;
+        if (err.message.includes("401") || err.message.includes("403")) {
+          errorMessage = `Authentication error. Please verify your ${source === 'patentsview' ? 'PATENTSVIEW_API_KEY' : 'IP_AU_CLIENT_ID/SECRET'} in the .env file.`;
+        } else if (err.message.includes("429")) {
+          errorMessage = "Rate limit exceeded. Please wait 60 seconds and try again.";
+        } else if (err.message.includes("500")) {
+          errorMessage = `${source === 'patentsview' ? 'PatentsView' : 'IP Australia'} API error. Please check the API status page.`;
+        } else if (err.message === "No patents found") {
+          errorMessage = `Zero results returned from the live ${source === 'patentsview' ? 'PatentsView' : 'IP Australia'} database. Please try refining your query.`;
+        } else {
+          errorMessage = `Live API unavailable (${err.message}). Please verify your API keys.`;
+        }
+        
+        setError(errorMessage);
       }
-      
-      setError(errorMessage);
     } finally {
       setLoading(false);
       setSearchComplete(true);
     }
-  }, [effectiveQuery]);
+  }, [effectiveQuery, source]);
 
   const toggleSelect = (id: string) => {
     setSelectedProspects((prev) => {
@@ -496,6 +552,17 @@ I'd love your input as an early user. Would a brief call work for you?
             </div>
           </div>
           <div className="flex gap-4 items-end">
+            <div className="w-56">
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Data Source</label>
+              <select
+                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                value={source}
+                onChange={(e) => setSource(e.target.value as "patentsview" | "ipaustralia")}
+              >
+                <option value="patentsview">US Patents (PatentsView)</option>
+                <option value="ipaustralia">AU Patents (IP Australia)</option>
+              </select>
+            </div>
             <div className="flex-1">
               <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Or enter custom search</label>
               <input

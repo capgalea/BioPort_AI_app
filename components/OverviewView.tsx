@@ -100,7 +100,7 @@ const OverviewView: React.FC<OverviewViewProps> = ({ onNavigateToSystemInfo }) =
               </div>
 
               {/* Smaller Cards */}
-              <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:border-blue-400 transition-colors flex flex-col justify-between group">
+               <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:border-blue-400 transition-colors flex flex-col justify-between group">
                  <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
                     <Database className="w-6 h-6 text-blue-600" />
                  </div>
@@ -135,6 +135,18 @@ const OverviewView: React.FC<OverviewViewProps> = ({ onNavigateToSystemInfo }) =
                     </p>
                  </div>
               </div>
+
+              <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:border-blue-400 transition-colors flex flex-col justify-between group">
+                 <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-100 transition-colors">
+                    <Globe className="w-6 h-6 text-blue-600" />
+                 </div>
+                 <div>
+                    <h3 className="text-lg font-black text-slate-900 mb-2">Patent Intelligence</h3>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                       Search global patent databases, including IP Australia, to identify innovation trends and prospects.
+                    </p>
+                 </div>
+              </div>
            </div>
         </section>
 
@@ -144,12 +156,13 @@ const OverviewView: React.FC<OverviewViewProps> = ({ onNavigateToSystemInfo }) =
               <div>
                  <h2 className="text-3xl font-black mb-6">Data Integrity Protocol</h2>
                  <p className="text-slate-400 font-medium leading-relaxed mb-8">
-                    We leverage <strong>Search Grounding</strong> to eliminate hallucinations. Every data point is cross-verified across three primary silos in real-time.
+                    We leverage <strong>Search Grounding</strong> to eliminate hallucinations. Every data point is cross-verified across four primary silos in real-time.
                  </p>
                  <div className="space-y-4">
                     <IntegrityItem title="AACT / CTG Registry" desc="Clinical trial grounding via NCT identifiers." />
                     <IntegrityItem title="PubMed API" desc="Academic publication verification and grant tracking." />
                     <IntegrityItem title="PubChem Structure" desc="3D Molecular rendering and chemical properties." />
+                    <IntegrityItem title="IP Australia API" desc="Australian patent data integration for prospect generation." />
                  </div>
               </div>
               <div className="relative h-64 lg:h-full min-h-[300px] bg-slate-800 rounded-3xl border border-slate-700 p-8 flex items-center justify-center">

@@ -124,7 +124,7 @@ const PromotionalPamphlet: React.FC = () => {
                 </div>
                 <h3 className="text-xl font-black text-slate-900 mb-2">Discovery Node</h3>
                 <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                  Perform bulk analysis on hundreds of entities instantly. Input a list of company names or search a therapeutic sector to build deep, verified profiles in seconds.
+                  Perform bulk analysis on hundreds of entities instantly. Input a list of company names or search a therapeutic sector to build deep, verified profiles using global PatentsView and IP Australia data.
                 </p>
               </div>
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
@@ -154,15 +154,7 @@ const PromotionalPamphlet: React.FC = () => {
                   Visualize global pipelines. Track drug development phases from Preclinical to Approval across corporate and academic sectors side-by-side.
                 </p>
               </div>
-              <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-4">
-                  <Briefcase className="w-6 h-6" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">Talent Node</h3>
-                <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                  Scan global career portals for specialized scientific roles. Filter opportunities by expertise (e.g. mRNA, Oncology) and institution type.
-                </p>
-              </div>
+
               <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                 <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-4">
                   <ShieldCheck className="w-6 h-6" />
