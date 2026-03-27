@@ -32,14 +32,29 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
     if ((window as any).L && (window as any).L.markerClusterGroup) {
       setIsLeafletLoaded(true);
     } else {
-      const interval = setInterval(() => {
+      let interval: any;
+      let timeout: any;
+
+      interval = setInterval(() => {
+        console.log("Checking for Leaflet L object:", (window as any).L);
         if ((window as any).L) {
-           // We'll consider it loaded if L is present, the component handles missing cluster plugin gracefully
            setIsLeafletLoaded(true);
            clearInterval(interval);
+           clearTimeout(timeout);
         }
       }, 100);
-      return () => clearInterval(interval);
+      
+      timeout = setTimeout(() => {
+        clearInterval(interval);
+        if (!(window as any).L) {
+          setError("Leaflet failed to load.");
+        }
+      }, 5000);
+
+      return () => {
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
     }
   }, []);
 
@@ -59,11 +74,14 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
     if (!isLeafletLoaded || !mapContainerRef.current) return;
 
     const L = (window as any).L;
+    console.log("Leaflet L object:", L);
 
     if (!mapInstanceRef.current) {
+      console.log("Attempting to initialize map...");
       try {
         const map = L.map(mapContainerRef.current).setView([20, 0], 2);
-
+        console.log("Map initialized.");
+        
         // CartoDB Voyager (Clean, Professional, Reliable)
         // Switch from Google Maps to CartoDB to prevent tile rendering issues/grey blocks
         const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -80,6 +98,7 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
 
         // Add default layer
         cartoVoyager.addTo(map);
+        console.log("CartoDB layer added.");
 
         // Add Layer Control to toggle between Map and Satellite
         L.control.layers({

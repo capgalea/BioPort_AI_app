@@ -194,6 +194,13 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
               System Tour
             </button>
           </div>
+
+          {/* Learn More Section */}
+          <div className="flex flex-wrap justify-center gap-6 mt-8">
+            <button onClick={() => onNavigate('overview')} className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest">Product Overview</button>
+            <button onClick={() => onNavigate('aboutUs')} className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest">Our Mission</button>
+            <button onClick={() => onNavigate('overview')} className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest">Target Audience</button>
+          </div>
         </div>
       </section>
 
