@@ -70,7 +70,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
   // --- Dynamic Filter Options ---
   const countryOptions = useMemo(() => {
     const s = new Set<string>();
-    companies.forEach(c => s.add(getCountry(c.contact.hqAddress)));
+    companies.forEach(c => s.add(getCountry(c.contact?.hqAddress)));
     return Array.from(s).sort().filter(Boolean).map(x => ({ id: x, label: x }));
   }, [companies]);
 
@@ -147,7 +147,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
         if (!selectedEntityTypes.includes(cat)) return false;
       }
       if (selectedCountries.length > 0) {
-        const country = getCountry(c.contact.hqAddress);
+        const country = getCountry(c.contact?.hqAddress);
         if (!selectedCountries.includes(country)) return false;
       }
       if (selectedDiseases.length > 0) {

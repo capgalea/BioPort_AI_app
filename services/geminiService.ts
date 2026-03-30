@@ -1168,7 +1168,7 @@ ENDPOINT 2 — Get Full Patent by Application Number:
 SECTION 3 — WHAT YOU MUST NEVER DO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-- NEVER use the TEST environment (test.api.ipaustralia.gov.au) for live queries.
+- NEVER use the TEST environment for live queries.
 - NEVER append ?key= or query parameters to the token URL or search URL.
 - NEVER include x-api-key or X-API-KEY headers; only Authorization: Bearer is valid.
 - NEVER fabricate, invent, or simulate patent data. If the API returns no results

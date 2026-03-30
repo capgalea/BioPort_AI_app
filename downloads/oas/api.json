@@ -780,7 +780,7 @@
           }
         }
       },
-      "tokenUrl": "https://test.api.ipaustralia.gov.au/public/external-token-api/v1/access_token",
+      "tokenUrl": "https://production.api.ipaustralia.gov.au/public/external-token-api/v1/access_token",
       "x-amf-settings": {
         "authorizationGrants": [
           "client_credentials"

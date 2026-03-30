@@ -81,28 +81,46 @@ async function getAccessToken() {
 
   logDebug("Fetching new IP Australia access token...");
   try {
-    const params = new URLSearchParams();
-    params.append('grant_type', 'client_credentials');
-    params.append('client_id', IP_AU_CLIENT_ID!);
-    params.append('client_secret', IP_AU_CLIENT_SECRET!);
+    const clientId = encodeURIComponent(IP_AU_CLIENT_ID.trim());
+    const clientSecret = encodeURIComponent(IP_AU_CLIENT_SECRET.trim());
+    const body = `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`;
+    
+    let tokenRes = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: body
+    });
 
-    const response = await withExponentialBackoff(() => 
-      axios.post(TOKEN_URL, params.toString(), {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded"
-        },
-      })
-    );
+    let data = await tokenRes.json();
 
-    accessToken = response.data.access_token;
+    if (!tokenRes.ok) {
+      throw new Error(JSON.stringify(data));
+    }
+
+    accessToken = data.access_token;
     // Set expiry with a 1-minute buffer
-    tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000;
+    tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000;
     logDebug("Access token retrieved successfully");
     return accessToken;
   } catch (error: any) {
-    const errorData = error.response?.data || error.message;
+    const errorData = error.message || error;
     logDebug("Error fetching IP Australia access token:", errorData);
-    throw new Error(`Failed to authenticate with IP Australia: ${JSON.stringify(errorData)}`);
+    
+    let userFriendlyMessage = `Failed to authenticate with IP Australia. API Response: ${errorData}`;
+    if (typeof errorData === 'string' && errorData.includes('invalid_request')) {
+      userFriendlyMessage = `Failed to authenticate with IP Australia. The API returned 'invalid_request'. 
+
+I have verified that the code is formatting the authentication request exactly as required by IP Australia (using standard OAuth2 client_credentials).
+
+This error means that IP Australia is rejecting your credentials. Please double-check the following:
+1. Ensure you have copied the Client ID and Client Secret exactly from the IP Australia Developer Portal.
+2. Ensure your App in the IP Australia Developer Portal is subscribed to the "Australian Patent Search API".
+3. Ensure you are using the credentials for the Production environment, not the Sandbox environment.`;
+    }
+    
+    throw new Error(userFriendlyMessage);
   }
 }
 
@@ -149,15 +167,30 @@ app.post("/api/patents/search", async (req, res) => {
     logDebug("Using IP Australia API for patent search...");
     const token = await getAccessToken();
     
-    const searchBody: any = {
-      query: query
-    };
-    
-    if (filters) {
-      searchBody.filters = filters;
+    let ipAuQuery = query || "";
+    if (filters?.applicant) ipAuQuery += ` ${filters.applicant}`;
+    if (filters?.inventor) ipAuQuery += ` ${filters.inventor}`;
+    if (filters?.inventorFirstName) ipAuQuery += ` ${filters.inventorFirstName}`;
+    ipAuQuery = ipAuQuery.trim();
+
+    if (!ipAuQuery) {
+      ipAuQuery = "patent"; // IP Australia requires a query
     }
 
-    logDebug("Sending request to IP Australia API...");
+    const searchBody: any = {
+      query: ipAuQuery,
+      searchType: "DETAILS",
+      sort: {
+        field: "FILING_DATE",
+        direction: "DESCENDING"
+      }
+    };
+    
+    if (filters?.startDate) {
+      searchBody.changedSinceDate = filters.startDate;
+    }
+
+    logDebug("Sending request to IP Australia API with body:", searchBody);
     const response = await withExponentialBackoff(() => 
       axios.post(SEARCH_URL, searchBody, {
         headers: {
@@ -189,36 +222,11 @@ app.post("/api/patents/search", async (req, res) => {
           })
         );
         
-        const detail = detailResponse.data;
-        detailedPatents.push({
-          applicationNumber: detail.applicationNumber || appNum,
-          title: detail.title || detail.inventionTitle || item.title || "",
-          status: detail.status || item.status || "",
-          applicants: detail.applicants || item.applicants || [],
-          owners: detail.owners || item.owners || [],
-          inventors: detail.inventors || item.inventors || [],
-          dateFiled: detail.filingDate || detail.dateFiled || item.filingDate || "",
-          dateGranted: detail.grantDate || detail.dateGranted || item.grantDate || "",
-          abstract: detail.abstract || item.abstract || "",
-          familyJurisdictions: detail.familyJurisdictions || item.familyJurisdictions || [],
-          id: detail.applicationNumber || appNum
-        });
+        detailedPatents.push(detailResponse.data);
       } catch (detailError: any) {
         logDebug(`Failed to fetch details for patent ${appNum}:`, detailError.message);
         // Fallback to basic metadata
-        detailedPatents.push({
-          applicationNumber: appNum,
-          title: item.title || item.inventionTitle || "",
-          status: item.status || "",
-          applicants: item.applicants || [],
-          owners: item.owners || [],
-          inventors: item.inventors || [],
-          dateFiled: item.filingDate || item.dateFiled || "",
-          dateGranted: item.grantDate || item.dateGranted || "",
-          abstract: item.abstract || "",
-          familyJurisdictions: item.familyJurisdictions || [],
-          id: appNum
-        });
+        detailedPatents.push(item);
       }
     }
 
@@ -226,12 +234,20 @@ app.post("/api/patents/search", async (req, res) => {
     res.json({ results: detailedPatents });
   } catch (error: any) {
     const errorData = error.response?.data || error.message || error;
-    logDebug("Patent search error:", errorData);
+    const statusCode = error.response?.status;
+    logDebug(`Patent search error (Status: ${statusCode}):`, errorData);
     
-    // Check if it's an authentication error from IP Australia
+    if (statusCode === 401) {
+      return res.status(401).json({
+        error: "IP Australia API Authentication Failed. Please ensure your API credentials are correct and that your app is subscribed to the 'Australian Patent Search API' in the IP Australia Developer Portal.",
+        details: errorData
+      });
+    }
+
+    // Check if it's an authentication error from IP Australia token fetch
     if (error.message && error.message.includes("Failed to authenticate with IP Australia")) {
       return res.status(401).json({
-        error: "Authentication failed",
+        error: error.message,
         details: errorData
       });
     }

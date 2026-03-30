@@ -29,7 +29,7 @@ const getCellValue = (c: CompanyData, colId: string): string => {
         case 'name': return c.name;
         case 'entityType': return getEntityCategory(c);
         case 'sector': return c.sector;
-        case 'hqAddress': return c.contact.hqAddress || '';
+        case 'hqAddress': return c.contact?.hqAddress || '';
         case 'pipelineCount': return String(c.pipeline?.length || 0);
         case 'approvedCount': return String(c.keyApprovedDrugs?.length || 0);
         case 'lastUpdated': return formatDate(c.lastUpdated);
@@ -71,7 +71,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 );
             } 
         },
-        { id: 'hqAddress', header: 'Region', sortable: true, draggable: true, cell: (c) => <span className="text-slate-600">{c.contact.hqAddress}</span> },
+        { id: 'hqAddress', header: 'Region', sortable: true, draggable: true, cell: (c) => <span className="text-slate-600">{c.contact?.hqAddress || ''}</span> },
         { id: 'pipelineCount', header: 'Pipeline', sortable: true, draggable: true, cell: (c) => <div className="text-center font-mono font-bold text-slate-700">{c.pipeline?.length || 0}</div> },
         { id: 'approvedCount', header: 'Approved', sortable: true, draggable: true, cell: (c) => <div className="text-center font-mono font-bold text-slate-700">{c.keyApprovedDrugs?.length || 0}</div> },
         { id: 'lastUpdated', header: 'Synced', sortable: true, draggable: true, cell: (c) => <span className="text-slate-500 text-xs">{formatDate(c.lastUpdated)}</span> },

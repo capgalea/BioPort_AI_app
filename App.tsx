@@ -279,7 +279,7 @@ const sanitizeCompanyData = (data: any): CompanyData => {
 };
 
 // Reduced initial hydration to speed up first paint
-const INITIAL_LOAD_COUNT = 12;
+const INITIAL_LOAD_COUNT = 500;
 
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
@@ -340,7 +340,7 @@ function App() {
   const [allCompanies, setAllCompanies] = useState<CompanyData[]>([]);
   const [totalCacheCount, setTotalCacheCount] = useState(0);
   const [isLazyLoading, setIsLazyLoading] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(500);
   const [status, setStatus] = useState<AnalysisStatus>('idle');
   const [progress, setProgress] = useState<{ current: number, total: number, message: string } | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null);
@@ -545,7 +545,7 @@ function App() {
             case 'name': return c.name;
             case 'entityType': return getEntityCategory(c);
             case 'sector': return c.sector;
-            case 'hqAddress': return c.contact.hqAddress || '';
+            case 'hqAddress': return c.contact?.hqAddress || '';
             case 'pipelineCount': return String(c.pipeline?.length || 0);
             case 'approvedCount': return String(c.keyApprovedDrugs?.length || 0);
             case 'lastUpdated': return formatDate(c.lastUpdated);
@@ -562,7 +562,7 @@ function App() {
         c.name.toLowerCase().includes(lowerGlobalFilter) ||
         c.sector.toLowerCase().includes(lowerGlobalFilter) ||
         c.description.toLowerCase().includes(lowerGlobalFilter) ||
-        (c.contact.hqAddress || '').toLowerCase().includes(lowerGlobalFilter) ||
+        (c.contact?.hqAddress || '').toLowerCase().includes(lowerGlobalFilter) ||
         (c.acquiredBy || '').toLowerCase().includes(lowerGlobalFilter) ||
         (c.acquisitionStatus || '').toLowerCase().includes(lowerGlobalFilter) ||
         getEntityCategory(c).toLowerCase().includes(lowerGlobalFilter);
@@ -577,12 +577,12 @@ function App() {
       // New multi-select filters
       if (selectedSectors.length > 0 && !selectedSectors.includes(c.sector)) return false;
       
-      const { country, region } = parseAddress(c.contact.hqAddress);
+      const { country, region } = parseAddress(c.contact?.hqAddress || '');
       if (selectedCountries.length > 0 && !selectedCountries.includes(country)) return false;
       if (selectedRegions.length > 0 && !selectedRegions.includes(region)) return false;
 
       if (selectedKeywords.length > 0) {
-        const companyText = `${c.name} ${c.description} ${c.sector} ${c.contact.hqAddress} ${c.keyTechnologies.join(' ')}`.toLowerCase();
+        const companyText = `${c.name} ${c.description} ${c.sector} ${c.contact?.hqAddress || ''} ${c.keyTechnologies.join(' ')}`.toLowerCase();
         const matchesAnyKeyword = selectedKeywords.some(kw => companyText.includes(kw.toLowerCase()));
         if (!matchesAnyKeyword) return false;
       }
@@ -597,12 +597,12 @@ function App() {
   }, [allCompanies]);
 
   const countryOptions = useMemo(() => {
-    const countries = new Set(allCompanies.map(c => parseAddress(c.contact.hqAddress).country));
+    const countries = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').country));
     return Array.from(countries).sort();
   }, [allCompanies]);
 
   const regionOptions = useMemo(() => {
-    const regions = new Set(allCompanies.map(c => parseAddress(c.contact.hqAddress).region));
+    const regions = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').region));
     return Array.from(regions).sort();
   }, [allCompanies]);
 
@@ -887,9 +887,13 @@ function App() {
                     <button onClick={() => navigateTo('overview')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Info className="w-4 h-4" /> Overview</button>
                     <button onClick={() => navigateTo('howToNavigate')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><PlayCircle className="w-4 h-4" /> System Tutorial</button>
                     <button onClick={() => navigateTo('changelog')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><History className="w-4 h-4" /> Changelog</button>
-                    <button onClick={() => navigateTo('systemInfo')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Fingerprint className="w-4 h-4" /> Specifications</button>
-                    <button onClick={() => navigateTo('pamphlet')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><FileText className="w-4 h-4" /> System Pamphlet</button>
-                    {(isAdmin || isPreviewMode) && (
+                    {(isPreviewMode) && (
+                      <>
+                        <button onClick={() => navigateTo('systemInfo')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><Fingerprint className="w-4 h-4" /> Specifications</button>
+                        <button onClick={() => navigateTo('pamphlet')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><FileText className="w-4 h-4" /> System Pamphlet</button>
+                      </>
+                    )}
+                    {isPreviewMode && (
                       <button onClick={() => navigateTo('architecture')} className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3 border-t border-slate-100 mt-1 pt-2"><Workflow className="w-4 h-4" /> Architecture</button>
                     )}
                     <div className="px-4 pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
@@ -930,7 +934,7 @@ function App() {
                    
                    <div className="relative group/biotech">
                      <button className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-all text-slate-500 hover:bg-slate-50`}>
-                       <Microscope className="w-4 h-4" /> <span className="hidden lg:inline">Biotech Search</span> <ChevronDown className="w-3 h-3 opacity-50" />
+                       <Microscope className="w-4 h-4" /> <span className="hidden lg:inline">Research Sources</span> <ChevronDown className="w-3 h-3 opacity-50" />
                      </button>
                      <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-2 invisible group-hover/biotech:visible opacity-0 group-hover/biotech:opacity-100 transition-all z-50">
                        <a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="noopener noreferrer" className="w-full text-left px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-3"><BookOpen className="w-4 h-4" /> PubMed</a>
@@ -1060,7 +1064,7 @@ function App() {
                                {c.acquisitionStatus === 'Acquired' ? 'Acquired' : 'Pending'}
                             </div>
                           )}
-                          <CompanyLogo name={c.name} website={c.contact.website} className="w-12 h-12 mb-3 shadow-sm" />
+                          <CompanyLogo name={c.name} website={c.contact?.website} className="w-12 h-12 mb-3 shadow-sm" />
                           <h3 className="text-base font-black text-slate-900 mb-1 group-hover:text-blue-600 transition-colors leading-tight">{c.name}</h3>
                           <p className="text-slate-500 text-xs line-clamp-3 leading-relaxed font-medium">{c.description}</p>
                         </div>

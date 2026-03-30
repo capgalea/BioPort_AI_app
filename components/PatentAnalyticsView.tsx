@@ -69,6 +69,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [source, setSource] = useState<'patentsView' | 'ipAustralia'>('patentsView');
   const [aiQuery, setAiQuery] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [inventor, setInventor] = useState('');
@@ -171,6 +172,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
     const app = overrides?.applicant !== undefined ? overrides.applicant : applicant;
     const sYear = overrides?.startYear !== undefined ? overrides.startYear : startYear;
     const eYear = overrides?.endYear !== undefined ? overrides.endYear : endYear;
+    const src = overrides?.source !== undefined ? overrides.source : source;
 
     try {
       const result = await patentService.getPatents(q, {
@@ -179,7 +181,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         applicant: app || undefined,
         startDate: `${sYear}-01-01`,
         endDate: `${eYear}-12-31`
-      }, downloadLimit === 'ALL' ? 10000 : downloadLimit);
+      }, downloadLimit === 'ALL' ? 10000 : downloadLimit, src);
       setPatents(result);
       setSelectedRows(new Set());
     } catch (err: any) {
@@ -437,17 +439,30 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
       {/* Search & Filter Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Data from USPTO</h3>
+        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Patent Data</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-4">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title)</label>
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search patent titles (e.g., CRISPR, mRNA)..."
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
+          <div className="lg:col-span-4 flex gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title)</label>
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search patent titles (e.g., CRISPR, mRNA)..."
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div className="w-48">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Source</label>
+              <select 
+                value={source}
+                onChange={(e) => setSource(e.target.value as 'patentsView' | 'ipAustralia')}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+              >
+                <option value="patentsView">USPTO (PatentsView)</option>
+                <option value="ipAustralia">IP Australia</option>
+              </select>
+            </div>
           </div>
           
           <div className="lg:col-span-1">
