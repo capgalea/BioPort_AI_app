@@ -67,7 +67,28 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
   const [selectedEntityTypes, setSelectedEntityTypes] = useState<string[]>([]);
   const [selectedDiseases, setSelectedDiseases] = useState<string[]>([]);
 
-  // --- Dynamic Filter Options ---
+  // --- Helpers ---
+  const parseAddress = (hqAddress?: string) => {
+    if (!hqAddress) return { country: 'Unknown', region: 'Unknown' };
+    const parts = hqAddress.split(',').map(p => p.trim()).filter(Boolean);
+    if (parts.length === 0) return { country: 'Unknown', region: 'Unknown' };
+    
+    let country = parts[parts.length - 1];
+    let region = parts.length > 1 ? parts[parts.length - 2] : 'Unknown';
+
+    // Strip leading postal codes/numbers
+    country = country.replace(/^[\d\s\-\/]+/, '').trim();
+    
+    // Simple normalization
+    const lowerCountry = country.toLowerCase();
+    if (lowerCountry.includes('usa') || lowerCountry.includes('united states')) country = 'USA';
+    else if (lowerCountry.includes('uk') || lowerCountry.includes('united kingdom')) country = 'UK';
+    else if (lowerCountry.includes('australia')) country = 'Australia';
+
+    return { country, region };
+  };
+
+  const getCountry = (address?: string) => parseAddress(address).country;
   const countryOptions = useMemo(() => {
     const s = new Set<string>();
     companies.forEach(c => s.add(getCountry(c.contact?.hqAddress)));
@@ -364,12 +385,14 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
       className={`flex flex-col ${isFullScreen ? 'fixed inset-0 z-[9999] rounded-none h-screen w-screen' : 'h-[700px] rounded-3xl'} bg-white border border-slate-200 shadow-sm overflow-hidden relative group transition-all duration-300`}
     >
       {/* Controls Overlay */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col sm:flex-row justify-between items-start gap-4 pointer-events-none">
+      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col sm:flex-row justify-between items-start gap-4">
         <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-lg pointer-events-auto min-w-[320px] max-w-[360px] max-h-[80vh] overflow-y-auto custom-scrollbar">
            <div className="flex items-center justify-between gap-4 mb-2">
              <div className="flex items-center gap-2">
                 <Network className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider">Ecosystem Graph</h3>
+                <Tooltip content="A visual representation of the biotechnology ecosystem.">
+                 <h3 className="font-black text-slate-900 text-sm uppercase tracking-wider">Ecosystem Graph</h3>
+               </Tooltip>
              </div>
              <div className="flex items-center gap-1">
                {selectedNodeId && (
@@ -420,17 +443,31 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
                 <div className="space-y-3">
                    <div className="flex items-center gap-2 mb-1">
                       <Filter className="w-3 h-3 text-slate-400" />
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Filters</label>
+                      <Tooltip content="Filter the graph nodes based on specific entity types, countries, regions, or disease areas.">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Filters</label>
+                       </Tooltip>
+                       <button 
+                         onClick={() => {
+                           setSelectedEntityTypes([]);
+                           setSelectedCountries([]);
+                           setSelectedDiseases([]);
+                         }}
+                         className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 uppercase"
+                       >
+                         Clear
+                       </button>
                    </div>
                    <div className="space-y-2">
                       <MultiSelect label="Entity Type" options={typeOptions} selectedIds={selectedEntityTypes} onChange={setSelectedEntityTypes} placeholder="All Types" />
-                      <MultiSelect label="Country / Region" options={countryOptions} selectedIds={selectedCountries} onChange={setSelectedCountries} placeholder="All Countries" />
+                      <MultiSelect label="Country" options={countryOptions} selectedIds={selectedCountries} onChange={setSelectedCountries} placeholder="All Countries" />
                       <MultiSelect label="Disease Area" options={diseaseOptions} selectedIds={selectedDiseases} onChange={setSelectedDiseases} placeholder="All Diseases" />
                    </div>
                 </div>
                 <hr className="border-slate-100" />
                 <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Node Visibility</label>
+                   <Tooltip content="Toggle visibility of different node types (Company, Technology, Sector) in the graph.">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Node Visibility</label>
+                       </Tooltip>
                    <div className="flex gap-2">
                       {(['company', 'technology', 'sector'] as const).map(type => (
                         <button key={type} onClick={() => setVisibleTypes(prev => ({ ...prev, [type]: !prev[type] }))} className={`flex-1 flex items-center justify-center p-2 rounded-lg border text-[10px] font-bold uppercase transition-all ${visibleTypes[type] ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-400 border-slate-200'}`}>
@@ -442,7 +479,9 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
                 </div>
                 <div>
                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Metadata Noise Filter</label>
+                      <Tooltip content="Filter out nodes with fewer connections than the threshold to reduce visual noise.">
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Metadata Noise Filter</label>
+                       </Tooltip>
                       <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 rounded">{connectionThreshold} links</span>
                    </div>
                    <input type="range" min="1" max="10" value={connectionThreshold} onChange={(e) => setConnectionThreshold(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />

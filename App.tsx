@@ -279,7 +279,7 @@ const sanitizeCompanyData = (data: any): CompanyData => {
 };
 
 // Reduced initial hydration to speed up first paint
-const INITIAL_LOAD_COUNT = 500;
+const INITIAL_LOAD_COUNT = 20000;
 
 const formatDate = (dateStr?: string) => {
     if (!dateStr) return 'N/A';
