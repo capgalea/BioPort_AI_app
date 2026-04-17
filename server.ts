@@ -5,6 +5,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { BigQuery } from "@google-cloud/bigquery";
 import { withExponentialBackoff } from "./src/utils/apiUtils.ts";
 
 dotenv.config();
@@ -126,6 +127,354 @@ This error means that IP Australia is rejecting your credentials. Please double-
 
 // API Routes
 import { fetchDetailedPatentsFromIPAustralia } from "./services/geminiService.ts";
+
+let bigqueryOptions: any = {};
+if (process.env.GOOGLE_CREDENTIALS_JSON) {
+  try {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
+    bigqueryOptions.credentials = {
+      client_email: credentials.client_email,
+      private_key: credentials.private_key,
+    };
+    bigqueryOptions.projectId = credentials.project_id;
+    console.log("BigQuery initialized with GOOGLE_CREDENTIALS_JSON");
+  } catch (e) {
+    console.error("Failed to parse GOOGLE_CREDENTIALS_JSON environment variable. Ensure it is valid JSON.");
+  }
+}
+
+const bigquery = new BigQuery(bigqueryOptions);
+
+app.post("/api/bigquery/family-jurisdictions", async (req, res) => {
+  try {
+    const { familyId } = req.body;
+    if (!familyId) {
+      return res.status(400).json({ error: "familyId is required" });
+    }
+
+    const sqlQuery = `
+      SELECT DISTINCT country_code 
+      FROM \`bioport-ai-app.bioport_patents.google_patents_optimized\` 
+      WHERE family_id = @familyId
+    `;
+    
+    const options = {
+      query: sqlQuery,
+      params: { familyId: familyId },
+      useQueryCache: true,
+    };
+    
+    const [rows] = await bigquery.query(options);
+    const jurisdictions = rows.map(row => row.country_code).filter(Boolean);
+    
+    res.json({ jurisdictions });
+  } catch (error: any) {
+    console.error("BigQuery family jurisdictions error:", error);
+    res.status(500).json({ error: error.message || "Failed to retrieve family jurisdictions" });
+  }
+});
+
+type ASTNode = 
+  | { type: 'AND', left: ASTNode, right: ASTNode }
+  | { type: 'OR', left: ASTNode, right: ASTNode }
+  | { type: 'NOT', operand: ASTNode }
+  | { type: 'TERM', value: string };
+
+class BooleanParser {
+  tokens: string[];
+  pos: number = 0;
+
+  constructor(query: string) {
+    const regex = /"(?:[^"\\]|\\.)*"|\(|\)|AND|OR|NOT|,|[^\s(),]+/gi;
+    this.tokens = [];
+    let match;
+    while ((match = regex.exec(query)) !== null) {
+      this.tokens.push(match[0]);
+    }
+  }
+
+  parse(): ASTNode | null {
+    if (this.tokens.length === 0) return null;
+    return this.parseOr();
+  }
+
+  parseOr(): ASTNode {
+    let node = this.parseAnd();
+    while (this.pos < this.tokens.length && (this.tokens[this.pos].toUpperCase() === 'OR' || this.tokens[this.pos] === ',')) {
+      this.pos++;
+      node = { type: 'OR', left: node, right: this.parseAnd() };
+    }
+    return node;
+  }
+
+  parseAnd(): ASTNode {
+    let node = this.parseNot();
+    while (this.pos < this.tokens.length && this.tokens[this.pos].toUpperCase() === 'AND') {
+      this.pos++;
+      node = { type: 'AND', left: node, right: this.parseNot() };
+    }
+    return node;
+  }
+
+  parseNot(): ASTNode {
+    if (this.pos < this.tokens.length && this.tokens[this.pos].toUpperCase() === 'NOT') {
+      this.pos++;
+      return { type: 'NOT', operand: this.parseNot() };
+    }
+    return this.parsePrimary();
+  }
+
+  parsePrimary(): ASTNode {
+    if (this.pos >= this.tokens.length) return { type: 'TERM', value: '' };
+    const token = this.tokens[this.pos];
+    if (token === '(') {
+      this.pos++;
+      const node = this.parseOr();
+      if (this.pos < this.tokens.length && this.tokens[this.pos] === ')') this.pos++;
+      return node;
+    }
+    
+    let val = '';
+    while (this.pos < this.tokens.length) {
+      const t = this.tokens[this.pos];
+      const upper = t.toUpperCase();
+      if (upper === 'AND' || upper === 'OR' || upper === 'NOT' || t === '(' || t === ')' || t === ',') {
+        break;
+      }
+      
+      let word = t;
+      if (word.startsWith('"') && word.endsWith('"')) {
+        word = word.substring(1, word.length - 1).replace(/\\"/g, '"');
+      }
+      val += (val ? ' ' : '') + word;
+      this.pos++;
+    }
+    
+    if (!val) {
+      this.pos++;
+      return { type: 'TERM', value: '' };
+    }
+    
+    return { type: 'TERM', value: val };
+  }
+}
+
+function compileAST(node: ASTNode, paramPrefix: string, params: any, fieldMapper: (term: string, paramName: string, p: any) => string): string {
+  if (node.type === 'AND') {
+    return `(${compileAST(node.left, paramPrefix + 'L', params, fieldMapper)} AND ${compileAST(node.right, paramPrefix + 'R', params, fieldMapper)})`;
+  }
+  if (node.type === 'OR') {
+    return `(${compileAST(node.left, paramPrefix + 'L', params, fieldMapper)} OR ${compileAST(node.right, paramPrefix + 'R', params, fieldMapper)})`;
+  }
+  if (node.type === 'NOT') {
+    return `NOT (${compileAST(node.operand, paramPrefix + 'N', params, fieldMapper)})`;
+  }
+  if (node.type === 'TERM') {
+    if (!node.value.trim()) return '1=1';
+    const paramName = `${paramPrefix}_term`;
+    return fieldMapper(node.value.trim(), paramName, params);
+  }
+  return '1=1';
+}
+
+app.post("/api/bigquery/search", async (req, res) => {
+  try {
+    const { query, applicant, inventor, startDate, endDate, countries, status, limit = 100, dryRun = false } = req.body;
+    
+    // Cost optimization: Default to last 20 years if no date range is provided
+    // This leverages partitioning on filing_date
+    let effectiveStartDate = startDate;
+    if (!effectiveStartDate && !endDate) {
+      const twentyYearsAgo = new Date();
+      twentyYearsAgo.setFullYear(twentyYearsAgo.getFullYear() - 20);
+      effectiveStartDate = twentyYearsAgo.toISOString().split('T')[0];
+    }
+
+    let whereClause = 'WHERE 1=1';
+    const params: any = {};
+
+    if (effectiveStartDate) {
+      whereClause += ` AND p.filing_date_dt >= CAST(@startDate AS DATE)`;
+      params.startDate = effectiveStartDate;
+    }
+    if (endDate) {
+      whereClause += ` AND p.filing_date_dt <= CAST(@endDate AS DATE)`;
+      params.endDate = endDate;
+    }
+    
+    if (countries && Array.isArray(countries) && countries.length > 0) {
+      whereClause += ` AND p.country IN UNNEST(@countries)`;
+      params.countries = countries;
+    }
+    
+    if (status) {
+      if (status === 'Granted') {
+        whereClause += ` AND p.inferred_status = 'Granted'`;
+      } else if (status === 'Application') {
+        whereClause += ` AND p.inferred_status = 'Application'`;
+      }
+    }
+    
+    if (applicant) {
+      whereClause += ` AND EXISTS (SELECT 1 FROM UNNEST(p.owners_and_applicants) a WHERE LOWER(a) LIKE @applicant)`;
+      params.applicant = `%${applicant.toLowerCase()}%`;
+    }
+    
+    if (inventor) {
+      const parser = new BooleanParser(inventor);
+      const ast = parser.parse();
+      if (ast) {
+        let paramCounter = 0;
+        const inventorSql = compileAST(ast, 'inv', params, (term, paramName, p) => {
+          paramCounter++;
+          const uniqueParamName = `${paramName}_${paramCounter}`;
+          const tokens = term.toLowerCase().split(/[\s]+/).filter(t => t.length > 0);
+          if (tokens.length >= 2) {
+            const first = tokens[0];
+            const last = tokens[tokens.length - 1];
+            const name1 = `${first} ${last}`;
+            const name2 = `${last} ${first}`;
+            p[`${uniqueParamName}_1`] = `%${name1}%`;
+            p[`${uniqueParamName}_2`] = `%${name2}%`;
+            return `EXISTS (SELECT 1 FROM UNNEST(p.inventors) i WHERE (LOWER(i) LIKE @${uniqueParamName}_1 OR LOWER(i) LIKE @${uniqueParamName}_2))`;
+          } else {
+            p[uniqueParamName] = `%${term.toLowerCase()}%`;
+            return `EXISTS (SELECT 1 FROM UNNEST(p.inventors) i WHERE LOWER(i) LIKE @${uniqueParamName})`;
+          }
+        });
+        if (inventorSql !== '1=1') {
+          whereClause += ` AND (${inventorSql})`;
+        }
+      }
+    }
+    
+    let sqlQuery = "";
+
+    if (!query) {
+      sqlQuery = `
+        SELECT 
+          p.application_number,
+          p.applicationNumber,
+          p.patent_type,
+          p.patent_kind,
+          p.family_id,
+          p.pct_number,
+          p.dateFiled,
+          p.earliest_priority_date,
+          p.dateGranted,
+          p.publication_date,
+          p.inferred_status,
+          p.country,
+          p.title, 
+          p.abstract,
+          p.owners_and_applicants,
+          p.inventors,
+          p.inventor_countries
+        FROM \`bioport-ai-app.bioport_patents.google_patents_optimized\` p
+        ${whereClause}
+        ORDER BY p.earliest_priority_date DESC LIMIT @limit
+      `;
+    } else {
+      const parser = new BooleanParser(query);
+      const ast = parser.parse();
+      if (ast) {
+        let paramCounter = 0;
+        const querySql = compileAST(ast, 'q', params, (term, paramName, p) => {
+          paramCounter++;
+          const uniqueParamName = `${paramName}_${paramCounter}`;
+          p[uniqueParamName] = term;
+          return `(
+            SEARCH(p.title, @${uniqueParamName}) OR
+            SEARCH(p.abstract, @${uniqueParamName})
+          )`;
+        });
+        if (querySql !== '1=1') {
+          whereClause += ` AND (${querySql})`;
+        }
+      }
+
+      sqlQuery = `
+        SELECT 
+          p.application_number,
+          p.applicationNumber,
+          p.patent_type,
+          p.patent_kind,
+          p.family_id,
+          p.pct_number,
+          p.dateFiled,
+          p.earliest_priority_date,
+          p.dateGranted,
+          p.publication_date,
+          p.inferred_status,
+          p.country,
+          p.title, 
+          p.abstract,
+          p.owners_and_applicants,
+          p.inventors,
+          p.inventor_countries
+        FROM \`bioport-ai-app.bioport_patents.google_patents_optimized\` p
+        ${whereClause}
+        ORDER BY p.earliest_priority_date DESC LIMIT @limit
+      `;
+    }
+    
+    params.limit = Math.min(limit, 1000); // Max 1000
+    
+    const options = {
+      query: sqlQuery,
+      params: params,
+      useQueryCache: true,
+      dryRun: dryRun,
+    };
+    
+    const [job] = await bigquery.createQueryJob(options);
+    
+    if (dryRun) {
+      const totalBytesProcessed = parseInt(job.metadata.statistics.totalBytesProcessed, 10);
+      const estimatedCostUSD = (totalBytesProcessed / (1024 * 1024 * 1024 * 1024)) * 5; // $5 per TB
+      return res.json({ 
+        dryRun: true,
+        totalBytesProcessed,
+        estimatedCostUSD: estimatedCostUSD.toFixed(4),
+        cacheHit: job.metadata.statistics.cacheHit
+      });
+    }
+
+    const [rows] = await job.getQueryResults();
+    
+    // Format the results to match the Patent interface
+    const formattedResults = rows.map(row => ({
+      id: row.applicationNumber || "",
+      title: row.title || "",
+      abstract: row.abstract || "",
+      dateFiled: row.dateFiled ? String(row.dateFiled.value || row.dateFiled) : "",
+      assignees: row.owners_and_applicants || [],
+      inventors: row.inventors || [],
+      jurisdiction: row.country || "",
+      source: "Google BigQuery",
+      familyId: row.family_id || "",
+      link: `https://patents.google.com/patent/${row.applicationNumber}`,
+      applicationNumber: row.applicationNumber || "",
+      patentType: row.patent_type || "",
+      patentKind: row.patent_kind || "",
+      earliestPriorityDate: row.earliest_priority_date ? String(row.earliest_priority_date.value || row.earliest_priority_date) : "",
+      datePublished: row.publication_date ? String(row.publication_date.value || row.publication_date) : "",
+      status: row.inferred_status || (row.dateGranted ? "Granted" : "Published"),
+      country: row.country || ""
+    }));
+    
+    res.json({ 
+      results: formattedResults,
+      statistics: {
+        totalBytesProcessed: job.metadata.statistics.totalBytesProcessed,
+        cacheHit: job.metadata.statistics.cacheHit
+      }
+    });
+  } catch (error: any) {
+    console.error("BigQuery search error:", error);
+    res.status(500).json({ error: error.message || "Failed to retrieve data from BigQuery" });
+  }
+});
 
 app.post("/api/patents/search", async (req, res) => {
   const { query, filters, source } = req.body;
@@ -422,140 +771,6 @@ app.get("/api/test-epo-auth", async (req, res) => {
 });
 
 // USPTO search route removed
-
-app.get("/api/patents/patentsview", async (req, res) => {
-  const apiKey = process.env.PATENTSVIEW_API_KEY;
-  if (!apiKey) {
-    return res.status(400).json({ error: "PATENTSVIEW_API_KEY is not configured on the server." });
-  }
-
-  const userQuery = req.query.q as string;
-  const inventor = req.query.inventor as string;
-  const inventorFirstName = req.query.inventorFirstName as string;
-  const applicant = req.query.applicant as string;
-  const startDate = req.query.startDate as string;
-  const endDate = req.query.endDate as string;
-  const size = req.query.size ? parseInt(req.query.size as string, 10) : 25;
-
-  if (!userQuery && !inventor && !inventorFirstName && !applicant && !startDate && !endDate) {
-    return res.status(400).json({ error: "Missing search parameters." });
-  }
-
-  try {
-    const conditions: any[] = [];
-    if (userQuery) conditions.push({ "_text_all": { "patent_title": userQuery } });
-    if (inventor) conditions.push({ "_text_all": { "inventors.inventor_name_last": inventor } });
-    if (inventorFirstName) conditions.push({ "_text_all": { "inventors.inventor_name_first": inventorFirstName } });
-    if (applicant) conditions.push({ "_text_phrase": { "assignees.assignee_organization": applicant } });
-    if (startDate) conditions.push({ "_gte": { "patent_date": startDate } });
-    if (endDate) conditions.push({ "_lte": { "patent_date": endDate } });
-
-    let qObj: any;
-    if (conditions.length > 1) {
-      qObj = { "_and": conditions };
-    } else if (conditions.length === 1) {
-      qObj = conditions[0];
-    } else {
-      qObj = { "_text_all": { "patent_title": "" } };
-    }
-
-    const qParam = JSON.stringify(qObj);
-    const fParamPatent = JSON.stringify([
-      "patent_id",
-      "patent_title",
-      "patent_date",
-      "patent_abstract",
-      "patent_earliest_application_date",
-      "patent_type",
-      "assignees.assignee_organization",
-      "assignees.assignee_individual_name_first",
-      "assignees.assignee_individual_name_last",
-      "assignees.assignee_country",
-      "inventors.inventor_name_first",
-      "inventors.inventor_name_last",
-      "inventors.inventor_country",
-      "inventors.inventor_state",
-      "application.filing_date",
-      "application.application_id",
-      "pct_data.pct_docnumber",
-      "pct_data.pct_kind",
-      "pct_data.pct_date",
-      "pct_data.pct_371_date",
-      "pct_data.pct_102_date",
-      "pct_data.published_filed_date"
-    ]);
-
-    const fParamPub = JSON.stringify([
-      "document_number",
-      "publication_title",
-      "publication_date",
-      "publication_abstract",
-      "assignees.assignee_organization",
-      "assignees.assignee_individual_name_first",
-      "assignees.assignee_individual_name_last",
-      "assignees.assignee_country",
-      "inventors.inventor_name_first",
-      "inventors.inventor_name_last",
-      "inventors.inventor_country",
-      "inventors.inventor_state"
-    ]);
-
-    // Split size between patents and publications
-    const halfSize = Math.max(Math.floor(size / 2), 1);
-    const oParam = JSON.stringify({ "size": Math.min(halfSize, 10000) });
-
-    const patentUrl = `https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(qParam)}&f=${encodeURIComponent(fParamPatent)}&o=${encodeURIComponent(oParam)}`;
-    
-    // Convert patent query fields to publication query fields
-    const pubQObj = JSON.parse(JSON.stringify(qObj).replace(/patent_title/g, 'publication_title').replace(/patent_date/g, 'publication_date'));
-    const pubQParam = JSON.stringify(pubQObj);
-    const pubUrl = `https://search.patentsview.org/api/v1/publication/?q=${encodeURIComponent(pubQParam)}&f=${encodeURIComponent(fParamPub)}&o=${encodeURIComponent(oParam)}`;
-
-    logDebug(`Fetching from PatentsView: ${patentUrl}`);
-    logDebug(`Fetching from PatentsView Pubs: ${pubUrl}`);
-
-    const [patentResponse, pubResponse] = await Promise.all([
-      axios.get(patentUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
-        logDebug("Patent fetch error:", e.response?.data || e.message);
-        if (e.response?.status === 401 || e.response?.status === 403 || e.response?.status === 429) throw e;
-        return { data: { patents: [], count: 0, total_patent_count: 0 } };
-      }),
-      axios.get(pubUrl, { headers: { "X-Api-Key": apiKey } }).catch(e => {
-        logDebug("Publication fetch error:", e.response?.data || e.message);
-        if (e.response?.status === 401 || e.response?.status === 403 || e.response?.status === 429) throw e;
-        return { data: { publications: [], count: 0, total_hits: 0 } };
-      })
-    ]);
-
-    const patents = patentResponse.data.patents || [];
-    const publications = pubResponse.data.publications || [];
-
-    const mappedPublications = publications.map((pub: any) => ({
-      patent_id: pub.document_number,
-      patent_title: pub.publication_title,
-      patent_date: pub.publication_date,
-      patent_abstract: pub.publication_abstract,
-      patent_type: "Pre-grant Publication",
-      is_publication: true,
-      assignees: pub.assignees,
-      inventors: pub.inventors
-    }));
-
-    res.json({
-      patents: [...patents, ...mappedPublications],
-      count: (patentResponse.data.count || 0) + (pubResponse.data.count || 0),
-      total_patent_count: (patentResponse.data.total_patent_count || 0) + (pubResponse.data.total_hits || 0)
-    });
-  } catch (error: any) {
-    const errorData = error.response?.data || error.message || error;
-    const status = error.response?.status || 500;
-    logDebug("PatentsView API Error:", errorData);
-    res.status(status).json({
-      error: "Failed to retrieve patent data from PatentsView",
-      details: errorData
-    });
-  }
-});
 
 // USPTO analytics search route removed
 

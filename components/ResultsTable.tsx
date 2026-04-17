@@ -305,7 +305,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
     const availableChars = useMemo(() => {
       if (!openFilterMenu) return [];
       const options = columnOptions[openFilterMenu] || [];
-      const chars = new Set(options.map(opt => opt[0]?.toUpperCase()).filter(Boolean));
+      const chars = new Set(options.map(opt => opt?.[0]?.toUpperCase()).filter(Boolean));
       return Array.from(chars).sort();
     }, [columnOptions, openFilterMenu]);
 
@@ -410,8 +410,8 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                                                                   }
                                                                   return true;
                                                               })
-                                                              .filter(opt => characterFilter.length === 0 || (opt[0] && characterFilter.includes(opt[0].toUpperCase())))
-                                                              .filter(opt => opt.toLowerCase().includes(filterSearch.toLowerCase()))
+                                                              .filter(opt => characterFilter.length === 0 || (opt?.[0] && characterFilter.includes(opt[0].toUpperCase())))
+                                                              .filter(opt => (opt || '').toLowerCase().includes(filterSearch.toLowerCase()))
                                                               .map(option => (
                                                                 <label key={option} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer text-slate-700 normal-case font-medium">
                                                                     <input type="checkbox" checked={(tempColumnFilters[col.id] || []).includes(option)} onChange={() => handleToggleTempColumnFilter(col.id, option)} className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500" />

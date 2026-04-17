@@ -71,14 +71,14 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ label, options, selectedIds, 
   }, []);
 
   const availableChars = useMemo(() => {
-    const chars = new Set(options.map(opt => opt.label[0]?.toUpperCase()).filter(Boolean));
+    const chars = new Set(options.map(opt => opt?.label?.[0]?.toUpperCase()).filter(Boolean));
     return Array.from(chars).sort();
   }, [options]);
 
   const filteredOptions = useMemo(() => {
     return options.filter(opt =>
-      (characterFilter.length === 0 || (opt.label[0] && characterFilter.includes(opt.label[0].toUpperCase()))) &&
-      opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+      (characterFilter.length === 0 || (opt?.label?.[0] && characterFilter.includes(opt.label[0].toUpperCase()))) &&
+      (opt?.label || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [options, searchTerm, characterFilter]);
 

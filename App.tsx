@@ -36,10 +36,10 @@ const CloudImportModal = lazy(() => import('./components/CloudImportModal'));
 const DrugSearchView = lazy(() => import('./components/DrugSearchView'));
 const ResultsTable = lazy(() => import('./components/ResultsTable'));
 const NewsFeed = lazy(() => import('./components/NewsFeed'));
-const PatentsView = lazy(() => import('./components/PatentsView'));
 const PatentAnalyticsView = lazy(() => import('./components/PatentAnalyticsView'));
 const PatentSearchPage = lazy(() => import('./components/PatentSearchPage'));
 const PatentSearchAgent = lazy(() => import('./components/PatentSearchAgent'));
+const PatentAIAgentView = lazy(() => import('./components/PatentAIAgentView'));
 
 const slugify = (text: string): string => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
@@ -592,17 +592,17 @@ function App() {
   }, [allCompanies, globalFilter, columnFilters, selectedCompanyIds, selectedSectors, selectedCountries, selectedRegions, selectedKeywords]);
 
   const sectorOptions = useMemo(() => {
-    const sectors = new Set(allCompanies.map(c => c.sector));
+    const sectors = new Set(allCompanies.map(c => c.sector).filter(Boolean));
     return Array.from(sectors).sort();
   }, [allCompanies]);
 
   const countryOptions = useMemo(() => {
-    const countries = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').country));
+    const countries = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').country).filter(Boolean));
     return Array.from(countries).sort();
   }, [allCompanies]);
 
   const regionOptions = useMemo(() => {
-    const regions = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').region));
+    const regions = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').region).filter(Boolean));
     return Array.from(regions).sort();
   }, [allCompanies]);
 
@@ -691,7 +691,7 @@ function App() {
     try {
       const region = getRegion(company.contact.hqAddress) || "Global";
       const results = await analyzeCompanies([company.name], region, undefined, undefined, undefined, true);
-      if (results.length > 0) {
+      if (results.length > 0 && results[0]) {
         setAllCompanies(prev => prev.map(c => c.id === company.id ? { ...results[0], id: company.id } : c));
       }
     } catch (err) {
@@ -924,6 +924,7 @@ function App() {
                         <div className="px-4 py-2">
                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Patents</div>
                            <button onClick={() => navigateTo('patentAnalytics')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors"><PieChart className="w-4 h-4" /> Analytics</button>
+                           <button onClick={() => navigateTo('patentAIAgent')} className="w-full text-left text-sm font-black text-slate-900 flex items-center gap-3 hover:text-blue-600 transition-colors mt-2"><Bot className="w-4 h-4" /> Patent AI Agent</button>
                         </div>
                         <div className="px-4 py-2">
                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Customer</div>
@@ -1134,6 +1135,7 @@ function App() {
           )}
 
           {view === 'patentAnalytics' && <PatentAnalyticsView initialCompany={patentAnalyticsCompany || undefined} />}
+          {view === 'patentAIAgent' && <PatentAIAgentView companies={allCompanies} />}
 
           {view === 'employment' && <EmploymentView />}
           {view === 'systemInfo' && <SystemInfoView />}

@@ -12,7 +12,14 @@ import MolecularViewerModal from './MolecularViewerModal.tsx';
 const DrugSearchView: React.FC = () => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<(DrugDeepDive & { id: string })[]>([]);
+  const [results, setResults] = useState<(DrugDeepDive & { id: string })[]>(() => {
+    const saved = localStorage.getItem('bioport_drug_search_results');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('bioport_drug_search_results', JSON.stringify(results));
+  }, [results]);
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

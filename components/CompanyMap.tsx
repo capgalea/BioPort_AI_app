@@ -16,46 +16,40 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
 
   // Poll for Leaflet loading
   useEffect(() => {
+    let interval: any;
+    let timeout: any;
+
     const checkLeaflet = () => {
-      if ((window as any).L && (window as any).L.markerClusterGroup) {
+      const L = (window as any).L;
+      // Wait for BOTH Leaflet and the MarkerCluster plugin to be available
+      if (L && (L.markerClusterGroup || L.MarkerClusterGroup)) {
         setIsLeafletLoaded(true);
-      } else if ((window as any).L && !(window as any).L.markerClusterGroup) {
-         // If L exists but plugin doesn't, wait a bit longer or just proceed (logic handles missing plugin)
-         // But for best results we wait for the plugin if the script tag is there
-         const scriptExists = document.querySelector('script[src*="markercluster"]');
-         if (!scriptExists) {
-             setIsLeafletLoaded(true); // Proceed without it
-         }
+        clearInterval(interval);
+        clearTimeout(timeout);
       }
     };
 
-    if ((window as any).L && (window as any).L.markerClusterGroup) {
+    const L = (window as any).L;
+    if (L && (L.markerClusterGroup || L.MarkerClusterGroup)) {
       setIsLeafletLoaded(true);
     } else {
-      let interval: any;
-      let timeout: any;
-
-      interval = setInterval(() => {
-        console.log("Checking for Leaflet L object:", (window as any).L);
-        if ((window as any).L) {
-           setIsLeafletLoaded(true);
-           clearInterval(interval);
-           clearTimeout(timeout);
-        }
-      }, 100);
+      interval = setInterval(checkLeaflet, 100);
       
       timeout = setTimeout(() => {
         clearInterval(interval);
-        if (!(window as any).L) {
+        if ((window as any).L) {
+          // Fallback if plugin fails to load after 5 seconds
+          setIsLeafletLoaded(true);
+        } else {
           setError("Leaflet failed to load.");
         }
       }, 5000);
-
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
     }
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Helper to escape HTML for safety
@@ -130,18 +124,22 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
     }
 
     // Check if MarkerCluster plugin is available
-    const hasClusterPlugin = !!L.markerClusterGroup;
+    const hasClusterPlugin = !!(L.markerClusterGroup || L.MarkerClusterGroup);
+    console.log("Has MarkerCluster plugin:", hasClusterPlugin);
     
     let markerLayer: any = null;
 
     if (hasClusterPlugin) {
-      markerLayer = L.markerClusterGroup({
+      const clusterGroupFunction = L.markerClusterGroup || L.MarkerClusterGroup;
+      console.log("Creating marker cluster group");
+      markerLayer = clusterGroupFunction({
         maxClusterRadius: 40,
         spiderfyOnMaxZoom: true,
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
         // Custom Styled Clusters
         iconCreateFunction: function(cluster: any) {
+          console.log("Creating cluster icon");
           const childCount = cluster.getChildCount();
           
           let sizeClass = '';
@@ -166,6 +164,7 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
         }
       });
     } else {
+      console.log("MarkerCluster plugin not found, using LayerGroup");
       // Fallback LayerGroup if plugin missing
       markerLayer = L.layerGroup();
     }
@@ -173,6 +172,7 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
     const bounds = L.latLngBounds([]);
     let hasMarkers = false;
     const markersToAdd: any[] = [];
+    console.log(`Number of companies: ${companies.length}`);
 
     // --- Helper for List Generation in Popups ---
     const generateListHTML = (items: any[], type: 'pipeline' | 'approved' | 'pubs' | 'faculty', companyName: string) => {
@@ -242,12 +242,16 @@ const CompanyMap: React.FC<CompanyMapProps> = ({ companies }) => {
       const lat = Number(company.contact.latitude);
       const lng = Number(company.contact.longitude);
 
+      console.log(`Processing company: ${company.name}, Lat: ${lat}, Lng: ${lng}`);
+
       if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
         // Jitter to prevent exact overlap
         const jitter = 0.005; 
         const jLat = lat + (Math.random() - 0.5) * jitter;
         const jLng = lng + (Math.random() - 0.5) * jitter;
-
+        
+        console.log(`Adding marker for ${company.name} at [${jLat}, ${jLng}]`);
+        
         const website = company.contact.website;
         let safeUrl = '';
         if (website && website.toLowerCase() !== 'n/a') {

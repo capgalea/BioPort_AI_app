@@ -248,6 +248,7 @@ export interface Patent {
   pct371Date?: string;
   pct102Date?: string;
   publishedFiledDate?: string;
+  country?: string;
 }
 
-export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'prospectGenerator';
+export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'patentAIAgent' | 'prospectGenerator';

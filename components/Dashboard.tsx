@@ -104,8 +104,8 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
     let totalApproved = 0;
 
     displayedCompanies.forEach(c => {
-      totalApproved += c.keyApprovedDrugs.length;
-      c.pipeline.forEach(p => {
+      totalApproved += (c.keyApprovedDrugs || []).length;
+      (c.pipeline || []).forEach(p => {
         totalPipelineAssets++;
         const ph = p.phase.toLowerCase();
         if (ph.includes('pre') || ph.includes('discovery')) pipelineCounts[PipelinePhase.Preclinical]++;
@@ -129,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
 
     const techCounts: Record<string, number> = {};
     displayedCompanies.forEach(c => {
-      c.keyTechnologies.forEach(t => {
+      (c.keyTechnologies || []).forEach(t => {
         techCounts[t] = (techCounts[t] || 0) + 1;
       });
     });
@@ -138,7 +138,7 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
       .slice(0, 10);
       
     const topApprovedContributors = displayedCompanies
-      .map(c => ({ name: c.name, count: c.keyApprovedDrugs.length }))
+      .map(c => ({ name: c.name, count: (c.keyApprovedDrugs || []).length }))
       .filter(c => c.count > 0)
       .sort((a, b) => b.count - a.count)
       .slice(0, 3);
@@ -175,17 +175,17 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
   };
 
   const availableChars = useMemo(() => {
-    const chars = new Set(companies.map(c => c.name[0]?.toUpperCase()).filter(Boolean));
+    const chars = new Set(companies.map(c => c?.name?.[0]?.toUpperCase()).filter(Boolean));
     return Array.from(chars).sort();
   }, [companies]);
 
   const filteredOptions = useMemo(() => {
     return companies
       .filter(c =>
-        (characterFilter.length === 0 || (c.name[0] && characterFilter.includes(c.name[0].toUpperCase()))) &&
-        c.name.toLowerCase().includes(multiSelectSearch.toLowerCase())
+        (characterFilter.length === 0 || (c?.name?.[0] && characterFilter.includes(c.name[0].toUpperCase()))) &&
+        (c?.name || '').toLowerCase().includes(multiSelectSearch.toLowerCase())
       )
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [companies, multiSelectSearch, characterFilter]);
 
   const displayedOptions = filteredOptions.slice(0, 50);
@@ -583,14 +583,14 @@ const Dashboard: React.FC<DashboardProps> = ({ companies }) => {
                         <Tooltip content={
                           <div>
                             <div className="font-bold border-b border-slate-700 pb-1 mb-1">Top Candidates</div>
-                            {c?.pipeline.length ? c.pipeline.map(d => (
+                            {c?.pipeline?.length ? c.pipeline.map(d => (
                               <div key={d.drugName} className="mb-0.5 text-slate-300">
                                 • <a href={d.nctId ? `https://clinicaltrials.gov/study/${d.nctId}` : `https://clinicaltrials.gov/search?term=${encodeURIComponent(d.drugName + " " + c.name)}`} target="_blank" rel="noreferrer" className="hover:text-white hover:underline transition-colors">{d.drugName} ({d.phase})</a>
                               </div>
                             )) : 'No data'}
                           </div>
                         }>
-                          <span className="border-b border-dashed border-slate-300">{c?.pipeline.length}</span>
+                          <span className="border-b border-dashed border-slate-300">{c?.pipeline?.length || 0}</span>
                         </Tooltip>
                       </td>
                     );

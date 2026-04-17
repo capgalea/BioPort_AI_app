@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
-import { fetchPatentsFromPatentsView } from "../services/patentsViewService";
-import { Patent as GlobalPatent } from "../types";
+import { Patent as GlobalPatent } from "../types.ts";
+import { patentService } from "../services/patentService.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -291,7 +291,7 @@ const SEARCH_TERMS = [
 export default function ProspectGenerator() {
   const [query, setQuery] = useState("cancer immunotherapy");
   const [customQuery, setCustomQuery] = useState("");
-  const [source, setSource] = useState<"patentsview" | "ipaustralia">("patentsview");
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -314,97 +314,64 @@ export default function ProspectGenerator() {
     setOutreachDraft(null);
 
     try {
-      let raw: Patent[] = [];
-      if (source === "patentsview") {
-        raw = await fetchPatentsFromPatentsView(effectiveQuery, undefined, 40) as any;
-      } else {
-        const response = await fetch("/api/patents/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: effectiveQuery, source: "ipaustralia" }),
-        });
+      const raw = await patentService.getPatents(effectiveQuery, { countries: selectedCountries }, 40, 'googlePatents');
 
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
-        const data = await response.json();
-        raw = data.results || [];
-      }
-
-      if (raw.length === 0) throw new Error("No patents found");
+      if (!raw || raw.length === 0) throw new Error("No patents found");
 
       const generated = patentsToProspects(raw as any);
       setProspects(generated.slice(0, 40));
       setUsedMock(false);
     } catch (err: any) {
-      if (source === "ipaustralia") {
-        // Fallback to mock data for IP Australia if API fails
-        const mockRaw = [
-          {
-            id: "AU2023100123",
-            applicationNumber: "AU2023100123",
-            title: `Australian Innovation in ${effectiveQuery}`,
-            abstract: `A novel approach to ${effectiveQuery} developed in Australia.`,
-            status: "Granted",
-            dateFiled: "2023-01-15",
-            dateGranted: "2024-02-20",
-            inventors: ["Dr. Sarah Smith", "Prof. John Doe"],
-            applicants: ["University of Melbourne", "CSIRO"],
-            owners: ["University of Melbourne"],
-            familyJurisdictions: ["AU", "US", "EP"]
-          },
-          {
-            id: "AU2022200456",
-            applicationNumber: "AU2022200456",
-            title: `System and Method for ${effectiveQuery}`,
-            abstract: `An advanced system for improving ${effectiveQuery} outcomes.`,
-            status: "Published",
-            dateFiled: "2022-05-10",
-            inventors: ["Dr. Emily Chen"],
-            applicants: ["Monash University"],
-            owners: ["Monash University"],
-            familyJurisdictions: ["AU", "NZ"]
-          },
-          {
-            id: "AU2024100789",
-            applicationNumber: "AU2024100789",
-            title: `Next Generation ${effectiveQuery} Technology`,
-            abstract: `Next generation technology utilizing ${effectiveQuery}.`,
-            status: "Granted",
-            dateFiled: "2024-03-01",
-            dateGranted: "2025-01-10",
-            inventors: ["Dr. Michael Brown"],
-            applicants: ["Garvan Institute of Medical Research"],
-            owners: ["Garvan Institute of Medical Research"],
-            familyJurisdictions: ["AU", "US", "JP"]
-          }
-        ];
-        const generated = patentsToProspects(mockRaw as any);
-        setProspects(generated);
-        setUsedMock(true);
-        setError(`IP Australia API unavailable (${err.message}). Showing mock Australian data for demonstration.`);
-      } else {
-        setProspects([]);
-        setUsedMock(false);
-        
-        let errorMessage = err.message;
-        if (err.message.includes("401") || err.message.includes("403")) {
-          errorMessage = `Authentication error. Please verify your ${source === 'patentsview' ? 'PATENTSVIEW_API_KEY' : 'IP_AU_CLIENT_ID/SECRET'} in the .env file.`;
-        } else if (err.message.includes("429")) {
-          errorMessage = "Rate limit exceeded. Please wait 60 seconds and try again.";
-        } else if (err.message.includes("500")) {
-          errorMessage = `${source === 'patentsview' ? 'PatentsView' : 'IP Australia'} API error. Please check the API status page.`;
-        } else if (err.message === "No patents found") {
-          errorMessage = `Zero results returned from the live ${source === 'patentsview' ? 'PatentsView' : 'IP Australia'} database. Please try refining your query.`;
-        } else {
-          errorMessage = `Live API unavailable (${err.message}). Please verify your API keys.`;
+      // Fallback to mock data if API fails
+      const mockRaw = [
+        {
+          id: "AU2023100123",
+          applicationNumber: "AU2023100123",
+          title: `Australian Innovation in ${effectiveQuery}`,
+          abstract: `A novel approach to ${effectiveQuery} developed in Australia.`,
+          status: "Granted",
+          dateFiled: "2023-01-15",
+          dateGranted: "2024-02-20",
+          inventors: ["Dr. Sarah Smith", "Prof. John Doe"],
+          applicants: ["University of Melbourne", "CSIRO"],
+          owners: ["University of Melbourne"],
+          familyJurisdictions: ["AU", "US", "EP"]
+        },
+        {
+          id: "AU2022200456",
+          applicationNumber: "AU2022200456",
+          title: `System and Method for ${effectiveQuery}`,
+          abstract: `An advanced system for improving ${effectiveQuery} outcomes.`,
+          status: "Published",
+          dateFiled: "2022-05-10",
+          inventors: ["Dr. Emily Chen"],
+          applicants: ["Monash University"],
+          owners: ["Monash University"],
+          familyJurisdictions: ["AU", "NZ"]
+        },
+        {
+          id: "AU2024100789",
+          applicationNumber: "AU2024100789",
+          title: `Next Generation ${effectiveQuery} Technology`,
+          abstract: `Next generation technology utilizing ${effectiveQuery}.`,
+          status: "Granted",
+          dateFiled: "2024-03-01",
+          dateGranted: "2025-01-10",
+          inventors: ["Dr. Michael Brown"],
+          applicants: ["Garvan Institute of Medical Research"],
+          owners: ["Garvan Institute of Medical Research"],
+          familyJurisdictions: ["AU", "US", "JP"]
         }
-        
-        setError(errorMessage);
-      }
+      ];
+      const generated = patentsToProspects(mockRaw as any);
+      setProspects(generated);
+      setUsedMock(true);
+      setError(`Google Patents API unavailable (${err.message}). Showing mock data for demonstration.`);
     } finally {
       setLoading(false);
       setSearchComplete(true);
     }
-  }, [effectiveQuery, source]);
+  }, [effectiveQuery]);
 
   const toggleSelect = (id: string) => {
     setSelectedProspects((prev) => {
@@ -528,7 +495,7 @@ I'd love your input as an early user. Would a brief call work for you?
             <span className="text-xs font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">Prospect Engine</span>
           </div>
           <p className="text-slate-500 text-sm max-w-2xl leading-relaxed">
-            Mine USPTO PatentsView filings to surface researchers, TTO staff,
+            Mine USPTO filings (via Google Patents) to surface researchers, TTO staff,
             and startup founders for your beta outreach.
           </p>
         </div>
@@ -552,17 +519,6 @@ I'd love your input as an early user. Would a brief call work for you?
             </div>
           </div>
           <div className="flex gap-4 items-end">
-            <div className="w-56">
-              <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Data Source</label>
-              <select
-                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                value={source}
-                onChange={(e) => setSource(e.target.value as "patentsview" | "ipaustralia")}
-              >
-                <option value="patentsview">US Patents (PatentsView)</option>
-                <option value="ipaustralia">AU Patents (IP Australia)</option>
-              </select>
-            </div>
             <div className="flex-1">
               <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Or enter custom search</label>
               <input
@@ -572,6 +528,21 @@ I'd love your input as an early user. Would a brief call work for you?
                 placeholder="e.g. lipid nanoparticle drug delivery"
                 onKeyDown={(e) => e.key === "Enter" && runSearch()}
               />
+            </div>
+            <div className="w-48">
+              <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Countries</label>
+              <select
+                multiple
+                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 h-10"
+                value={selectedCountries}
+                onChange={(e) => setSelectedCountries(Array.from(e.target.selectedOptions, option => option.value))}
+              >
+                <option value="US">United States</option>
+                <option value="AU">Australia</option>
+                <option value="EP">Europe</option>
+                <option value="JP">Japan</option>
+                <option value="CN">China</option>
+              </select>
             </div>
             <button
               className={`px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${loading ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
@@ -770,7 +741,7 @@ I'd love your input as an early user. Would a brief call work for you?
           <div className="text-6xl text-blue-200 mb-6">⬡</div>
           <div className="text-sm text-slate-500 leading-relaxed">
             Select a technology domain and click{" "}
-            <strong className="text-slate-900">Find Prospects</strong> to mine USPTO PatentsView filings
+            <strong className="text-slate-900">Find Prospects</strong> to mine USPTO filings
             for potential BioPort users.
           </div>
         </div>

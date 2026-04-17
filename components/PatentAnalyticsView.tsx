@@ -6,49 +6,67 @@ import {
 } from 'recharts';
 import { 
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
-  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X, Maximize2, Copy
+  Eye, EyeOff, FileText, Loader2, AlertCircle, Info, ExternalLink, PieChart, X, Maximize2, Copy, Database
 } from 'lucide-react';
 import { Patent } from '../types';
-import { patentService } from '../services/patentService';
+import { patentService, PatentResults } from '../services/patentService';
 import { generatePatentComparisonSummary } from '../services/geminiService';
-import { DndContext, closestCenter, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
+import { getCountryName, countryNames } from '../src/constants/countryCodes';
 
 const INITIAL_COLUMNS = [
   { id: 'applicationNumber', label: 'Application Number' },
-  { id: 'owners', label: 'Owners' },
-  { id: 'applicants', label: 'Applicants' },
+  { id: 'assignees', label: 'Assignees' },
   { id: 'inventors', label: 'Inventors' },
   { id: 'title', label: 'Title' },
   { id: 'abstract', label: 'Abstract' },
   { id: 'status', label: 'Status' },
   { id: 'patentType', label: 'Patent Type' },
   { id: 'patentKind', label: 'Patent Kind' },
-  { id: 'familyJurisdictions', label: 'Family Jurisdictions' },
-  { id: 'inventorsCountry', label: 'Inventor Country' },
-  { id: 'inventorsState', label: 'Inventor State' },
+  { id: 'familyId', label: 'Family ID' },
   { id: 'dateFiled', label: 'Date Filed' },
   { id: 'earliestPriorityDate', label: 'Earliest Priority Date' },
-  { id: 'dateGranted', label: 'Date Granted' },
-  { id: 'pctDocNumber', label: 'PCT Doc Number' },
-  { id: 'pctKind', label: 'PCT Kind' },
-  { id: 'pctDate', label: 'PCT Date' },
-  { id: 'pct371Date', label: 'PCT 371 Date' },
-  { id: 'pct102Date', label: 'PCT 102 Date' },
-  { id: 'publishedFiledDate', label: 'Published Filed Date' }
+  { id: 'datePublished', label: 'Publication Date' },
+  { id: 'country', label: 'Country' }
 ];
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
-const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVisible: boolean, onToggle: () => void }) => {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column.id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+const PATENT_TYPE_DEFINITIONS: Record<string, string> = {
+  'A': 'Patent (Standard/Utility): The most common type. This represents a standard patent application or a granted regular patent.',
+  'W': 'PCT (International Application): An international patent application filed under the Patent Cooperation Treaty (managed by WIPO).',
+  'P': 'Provisional: A provisional application (most commonly used in the US system to secure an early filing date without formal patent claims).',
+  'U': 'Utility Model: Often called a "petty patent" or "innovation patent" (like what Australia used to issue). It is a faster, cheaper patent for minor improvements, common in countries like Germany, China, and Japan.',
+  'F': 'Design: An industrial design patent, which protects the visual appearance, shape, or ornamentation of an object rather than how it functions.',
+  'T': 'Translation: Typically used when a foreign or international application has been formally translated to enter a specific national phase.'
+};
 
+const PATENT_KIND_CATEGORIES: Record<string, string[]> = {
+  'Applications': ['A', 'U'],
+  'Grants': ['B', 'Y'],
+  'Corrections/Translations': ['C', 'T'],
+  'Extensions (Biotech)': ['M']
+};
+
+const getPatentKindCategory = (kind: string) => {
+  const baseKind = kind.charAt(0);
+  for (const [category, codes] of Object.entries(PATENT_KIND_CATEGORIES)) {
+    if (codes.includes(baseKind)) return category;
+  }
+  return 'Other';
+};
+
+const PATENT_KIND_DEFINITIONS: Record<string, string> = {
+  'Applications': 'Applications: Documents made public but not yet granted (A, U).',
+  'Grants': 'Grants: Patent office has examined the claims and officially granted the legal monopoly (B, Y).',
+  'Corrections/Translations': 'Corrections/Translations: Amended, Corrected, or Re-examined patents (C, T).',
+  'Extensions (Biotech)': 'Extensions (Biotech): Biotech extensions (M).'
+};
+
+const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVisible: boolean, onToggle: () => void }) => {
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-1 p-1.5 hover:bg-slate-50 rounded bg-white">
-      <div {...attributes} {...listeners} className="cursor-grab text-slate-400 hover:text-slate-700">
+    <div className="flex items-center gap-1 p-1.5 hover:bg-slate-50 rounded bg-white">
+      <div className="text-slate-400 hover:text-slate-700">
         <GripVertical className="w-4 h-4" />
       </div>
       <label className="flex items-center gap-2 flex-1 cursor-pointer">
@@ -65,18 +83,39 @@ const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVi
 };
 
 export default function PatentAnalyticsView({ initialCompany }: { initialCompany?: string }) {
-  const [patents, setPatents] = useState<Patent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [patents, setPatents] = useState<Patent[]>(() => {
+    const saved = localStorage.getItem('bioport_patent_analytics_results');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [source, setSource] = useState<'patentsView' | 'ipAustralia'>('patentsView');
+  const [source, setSource] = useState<'ipAustralia' | 'googlePatents' | 'bigquery'>('bigquery');
   const [aiQuery, setAiQuery] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [inventor, setInventor] = useState('');
-  const [inventorFirstName, setInventorFirstName] = useState('');
+  const [inventorName, setInventorName] = useState('');
   const [applicant, setApplicant] = useState(initialCompany || '');
   const [startYear, setStartYear] = useState(2010);
   const [endYear, setEndYear] = useState(new Date().getFullYear());
+  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const countryDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_patent_analytics_results', JSON.stringify(patents));
+  }, [patents]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(event.target as Node)) {
+        setIsCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Table State
   const [tableColumns, setTableColumns] = useState(INITIAL_COLUMNS);
@@ -100,10 +139,19 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [aiResponsePopup, setAiResponsePopup] = useState<{ summary: string, references: { title: string, url: string }[] } | null>(null);
   const [aiResponsePopupPosition, setAiResponsePopupPosition] = useState({ x: 0, y: 0 });
   const [fullTextPopup, setFullTextPopup] = useState<{ content: string, title: string } | null>(null);
+  const [bqStats, setBqStats] = useState<any>(null);
+  const [isDryRunning, setIsDryRunning] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [draggingModal, setDraggingModal] = useState<'preview' | 'ai' | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    const date = parseISO(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return format(date, 'yyyy/MM/dd');
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -165,50 +213,83 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const fetchPatents = async (overrides?: any) => {
     setLoading(true);
     setError(null);
+    setBqStats(null);
 
     const q = overrides?.searchQuery !== undefined ? overrides.searchQuery : searchQuery;
-    const inv = overrides?.inventor !== undefined ? overrides.inventor : inventor;
-    const invFirstName = overrides?.inventorFirstName !== undefined ? overrides.inventorFirstName : inventorFirstName;
+    const invName = overrides?.inventorName !== undefined ? overrides.inventorName : inventorName;
     const app = overrides?.applicant !== undefined ? overrides.applicant : applicant;
     const sYear = overrides?.startYear !== undefined ? overrides.startYear : startYear;
     const eYear = overrides?.endYear !== undefined ? overrides.endYear : endYear;
     const src = overrides?.source !== undefined ? overrides.source : source;
+    const countries = overrides?.countries !== undefined ? overrides.countries : selectedCountries;
+    const status = overrides?.status !== undefined ? overrides.status : statusFilter;
+    const dryRun = overrides?.dryRun || false;
+
+    if (dryRun) setIsDryRunning(true);
 
     try {
-      const result = await patentService.getPatents(q, {
-        inventor: inv || undefined,
-        inventorFirstName: invFirstName || undefined,
+      const result = await patentService.getPatentsWithStats(q, {
+        inventor: invName || undefined,
         applicant: app || undefined,
         startDate: `${sYear}-01-01`,
-        endDate: `${eYear}-12-31`
-      }, downloadLimit === 'ALL' ? 10000 : downloadLimit, src);
-      setPatents(result);
+        endDate: `${eYear}-12-31`,
+        countries: countries.length > 0 ? countries : undefined,
+        status: status === 'All' ? undefined : status
+      }, downloadLimit === 'ALL' ? 10000 : downloadLimit, src, dryRun);
+      
+      const patentResults = result as PatentResults;
+      if (dryRun) {
+        setBqStats(patentResults.statistics);
+      } else {
+        setPatents(patentResults.results);
+        setBqStats(patentResults.statistics);
+      }
       setSelectedRows(new Set());
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch patent data');
+      const backendError = err.response?.data?.error;
+      const backendDetails = err.response?.data?.details?.error;
+      let displayError = err.message || 'Failed to fetch patent data';
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        displayError = `Authentication error with Google Patents (SerpApi). Please ensure you have added a valid SERPAPI_KEY to your environment variables. (${backendDetails || backendError || err.message})`;
+      } else if (backendError) {
+        displayError = `${backendError} ${backendDetails ? `(${backendDetails})` : ''}`;
+      }
+      
+      setError(displayError);
     } finally {
       setLoading(false);
+      setIsDryRunning(false);
+    }
+  };
+
+  const handlePreviewPatent = async (patent: Patent) => {
+    setPreviewPatent(patent);
+    if (patent.family) {
+      try {
+        const response = await fetch('/api/bigquery/family-jurisdictions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ familyId: patent.family })
+        });
+        const data = await response.json();
+        setPreviewPatent(prev => prev ? { ...prev, familyJurisdictions: data.jurisdictions } : null);
+      } catch (error) {
+        console.error("Failed to fetch family jurisdictions:", error);
+      }
     }
   };
 
   useEffect(() => {
     if (initialCompany) {
       fetchPatents({ applicant: initialCompany });
-    } else {
+    } else if (patents.length === 0) {
       fetchPatents();
     }
   }, [initialCompany]);
 
-  const onDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (active.id !== over?.id) {
-      setTableColumns((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over?.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
+  // Drag and drop removed for React 19 compatibility
+  const onDragEnd = () => {};
 
   const toggleColumn = (colId: string) => {
     setVisibleColumns(prev => 
@@ -288,7 +369,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const availableYears = useMemo(() => {
     const years = new Set<string>();
     patents.forEach(p => {
-      ['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].forEach(colId => {
+      ['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate', 'datePublished'].forEach(colId => {
         const val = (p as any)[colId];
         if (val) {
           years.add(parseISO(val).getFullYear().toString());
@@ -333,7 +414,12 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
       if (!filterValues || filterValues.length === 0) return;
       result = result.filter(p => {
         const val = (p as any)[colId];
-        const strVal = Array.isArray(val) ? val.join(' ') : String(val || '');
+        let strVal;
+        if (colId === 'patentKind') {
+          strVal = getPatentKindCategory(String(val || ''));
+        } else {
+          strVal = Array.isArray(val) ? val.join(' ') : String(val || '');
+        }
         return filterValues.some(f => strVal.toLowerCase().includes(f.toLowerCase()));
       });
     });
@@ -390,7 +476,9 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
       const values = new Set<string>();
       processedPatents.forEach(p => {
         const val = (p as any)[col.id];
-        if (Array.isArray(val)) {
+        if (col.id === 'patentKind') {
+          values.add(getPatentKindCategory(String(val || '')));
+        } else if (Array.isArray(val)) {
           val.forEach(v => v && values.add(String(v)));
         } else if (val) {
           values.add(String(val));
@@ -404,8 +492,9 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const yearData = useMemo(() => {
     const counts: Record<string, number> = {};
     processedPatents.forEach(p => {
-      if (p.dateFiled) {
-        const year = p.dateFiled.substring(0, 4);
+      const date = p.dateFiled || p.earliestPriorityDate || p.datePublished;
+      if (date) {
+        const year = date.substring(0, 4);
         counts[year] = (counts[year] || 0) + 1;
       }
     });
@@ -443,60 +532,49 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="lg:col-span-4 flex gap-4">
             <div className="flex-1">
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title)</label>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title & Abstract)</label>
               <input 
                 type="text" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search patent titles (e.g., CRISPR, mRNA)..."
+                placeholder="e.g., CRISPR AND (Cas9 OR mRNA)"
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
               />
             </div>
-            <div className="w-48">
+            <div className="lg:col-span-1">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Source</label>
               <select 
                 value={source}
-                onChange={(e) => setSource(e.target.value as 'patentsView' | 'ipAustralia')}
+                onChange={(e) => setSource(e.target.value as any)}
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
               >
-                <option value="patentsView">USPTO (PatentsView)</option>
                 <option value="ipAustralia">IP Australia</option>
+                <option value="googlePatents">Google Patents (AI)</option>
+                <option value="bigquery">Google BigQuery</option>
+              </select>
+            </div>
+            <div className="lg:col-span-1">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Download Limit</label>
+              <select 
+                value={downloadLimit}
+                onChange={(e) => setDownloadLimit(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value="ALL">ALL</option>
               </select>
             </div>
           </div>
           
-          <div className="lg:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Download Limit</label>
-            <select 
-              value={downloadLimit}
-              onChange={(e) => setDownloadLimit(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value="ALL">ALL</option>
-            </select>
-          </div>
-          
-          <div className="lg:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor (First Name)</label>
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor Name(s)</label>
             <input 
               type="text" 
-              value={inventorFirstName}
-              onChange={(e) => setInventorFirstName(e.target.value)}
-              placeholder="e.g., Jennifer"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="lg:col-span-1">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inventor (Last Name)</label>
-            <input 
-              type="text" 
-              value={inventor}
-              onChange={(e) => setInventor(e.target.value)}
-              placeholder="e.g., Doudna"
+              value={inventorName}
+              onChange={(e) => setInventorName(e.target.value)}
+              placeholder='e.g., "Jennifer Doudna" OR "Feng Zhang"'
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
             />
           </div>
@@ -510,6 +588,75 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
               placeholder="e.g., Moderna"
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
             />
+          </div>
+
+          <div className="lg:col-span-1 relative" ref={countryDropdownRef}>
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Countries</label>
+            <div className="relative">
+              <button 
+                onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-left flex justify-between items-center"
+              >
+                <span className="truncate">
+                  {selectedCountries.length > 0 
+                    ? `${selectedCountries.length} Selected` 
+                    : 'All Countries'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-400" />
+              </button>
+              
+              {isCountryDropdownOpen && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-slate-100">
+                    <input 
+                      type="text" 
+                      placeholder="Search countries..." 
+                      value={countrySearch}
+                      onChange={(e) => setCountrySearch(e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="overflow-y-auto p-2 flex-1">
+                    {Object.entries(countryNames)
+                      .filter(([code, name]) => 
+                        name.toLowerCase().includes(countrySearch.toLowerCase()) || 
+                        code.toLowerCase().includes(countrySearch.toLowerCase())
+                      )
+                      .map(([code, name]) => (
+                        <label key={code} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer text-sm">
+                          <input 
+                            type="checkbox" 
+                            checked={selectedCountries.includes(code)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCountries(prev => [...prev, code]);
+                              } else {
+                                setSelectedCountries(prev => prev.filter(c => c !== code));
+                              }
+                            }}
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <span className="font-mono text-slate-400 text-xs">{code}</span>
+                          <span className="truncate">{name}</span>
+                        </label>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Grant Status</label>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            >
+              <option value="All">All Statuses</option>
+              <option value="Granted">Granted</option>
+              <option value="Application">Application</option>
+            </select>
           </div>
 
           <div className="lg:col-span-2 flex gap-4">
@@ -544,20 +691,32 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             >
               <Search className="w-4 h-4" /> Search
             </button>
+            {source === 'bigquery' && process.env.NODE_ENV !== 'production' && (
+              <button 
+                onClick={() => fetchPatents({ dryRun: true })}
+                className="px-6 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 flex items-center gap-2 border border-slate-200"
+                disabled={loading}
+              >
+                {isDryRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                Estimate Cost
+              </button>
+            )}
             <button 
               onClick={() => {
                 const currentYear = new Date().getFullYear();
                 setSearchQuery('');
-                setInventor('');
-                setInventorFirstName('');
+                setInventorName('');
                 setApplicant('');
+                setSelectedCountries([]);
+                setStatusFilter('All');
                 setStartYear(2010);
                 setEndYear(currentYear);
                 fetchPatents({
                   searchQuery: '',
-                  inventor: '',
-                  inventorFirstName: '',
+                  inventorName: '',
                   applicant: '',
+                  countries: [],
+                  status: 'All',
                   startYear: 2010,
                   endYear: currentYear
                 });
@@ -566,9 +725,56 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             >
               Clear Filters
             </button>
+            <button 
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete all results?')) {
+                  setPatents([]);
+                  setSelectedRows(new Set());
+                }
+              }}
+              className="px-6 py-2 bg-red-50 text-red-700 rounded-xl font-bold hover:bg-red-100 flex items-center gap-2 border border-red-100"
+            >
+              <X className="w-4 h-4" /> Delete All Results
+            </button>
           </div>
         </div>
       </div>
+
+      {bqStats && (
+        <div className={`mb-8 p-4 rounded-2xl border flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 ${bqStats.dryRun ? 'bg-indigo-50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+          <div className="flex items-center gap-4">
+            <div className={`p-2 rounded-lg ${bqStats.dryRun ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-white'}`}>
+              <Database className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                {bqStats.dryRun ? 'BigQuery Cost Estimate' : 'BigQuery Query Statistics'}
+              </h4>
+              <div className="flex gap-4 mt-1">
+                <p className="text-xs text-slate-500 font-medium">
+                  Processed: <span className="font-bold text-slate-900">{(bqStats.totalBytesProcessed / (1024 * 1024)).toFixed(2)} MB</span>
+                </p>
+                <p className="text-xs text-slate-500 font-medium">
+                  Est. Cost: <span className="font-bold text-slate-900">${bqStats.estimatedCostUSD}</span>
+                </p>
+                {bqStats.cacheHit && (
+                  <p className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                    <CheckSquare className="w-3 h-3" /> Cached Result (Free)
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          {bqStats.dryRun && (
+            <button 
+              onClick={() => fetchPatents()}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-sm"
+            >
+              Run Query Now
+            </button>
+          )}
+        </div>
+      )}
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400">
@@ -657,8 +863,6 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                   <Eye className="w-4 h-4" /> Columns
                 </button>
                 <div className="absolute top-full left-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-2 hidden group-hover:block z-20 max-h-64 overflow-y-auto">
-                  <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                    <SortableContext items={tableColumns.map(c => c.id)} strategy={verticalListSortingStrategy}>
                       {tableColumns.map((c) => (
                         <SortableColumnItem 
                           key={c.id} 
@@ -667,8 +871,6 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                           onToggle={() => toggleColumn(c.id)}
                         />
                       ))}
-                    </SortableContext>
-                  </DndContext>
                 </div>
               </div>
               
@@ -738,6 +940,9 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                     <th className="p-3 text-center w-12">
                       <span className="text-xs font-black text-slate-700 uppercase tracking-wider">PREVIEW</span>
                     </th>
+                    <th className="p-3 text-center w-12">
+                      <span className="text-xs font-black text-slate-700 uppercase tracking-wider">DELETE</span>
+                    </th>
                     {tableColumns.filter(c => visibleColumns.includes(c.id)).map(col => (
                       <th key={col.id} className="p-3 align-top min-w-[150px]">
                         <div className="flex flex-col gap-2">
@@ -752,7 +957,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                               ) : <ChevronDown className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
                             </span>
                           </div>
-                          {['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].includes(col.id) ? (
+                          {['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate', 'datePublished'].includes(col.id) ? (
                             <div className="relative group/date">
                               <button className="px-2 py-1 text-xs bg-slate-100 border border-slate-200 rounded hover:bg-slate-200 font-mono w-full text-left truncate">
                                 {dateFilters[col.id]?.length ? `${dateFilters[col.id].length} Years` : 'Select Years'}
@@ -808,7 +1013,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                                         setDraftFilters(prev => ({ ...prev, [col.id]: updated }));
                                       }}
                                     />
-                                    {val}
+                                    {col.id === 'country' ? getCountryName(val) : val}
                                   </label>
                                 ))}
                                 <button 
@@ -866,16 +1071,33 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                       </td>
                       <td className="p-3 text-center">
                         <button
-                          onClick={() => setPreviewPatent(patent)}
+                          onClick={() => handlePreviewPatent(patent)}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Preview Patent"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                       </td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => {
+                            setPatents(prev => prev.filter(p => p.applicationNumber !== patent.applicationNumber));
+                            setSelectedRows(prev => {
+                              const next = new Set(prev);
+                              next.delete(patent.applicationNumber);
+                              return next;
+                            });
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Result"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </td>
                       {tableColumns.filter(c => visibleColumns.includes(c.id)).map(col => {
                         const val = (patent as any)[col.id];
-                        const displayVal = Array.isArray(val) ? val.join(', ') : String(val || '');
+                        const isDateCol = ['earliestPriorityDate', 'datePublished', 'dateFiled', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].includes(col.id);
+                        const displayVal = isDateCol ? formatDate(val) : (Array.isArray(val) ? val.join(', ') : String(val || ''));
                         
                         return (
                           <td 
@@ -892,7 +1114,18 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                               });
                             }}
                             onMouseLeave={() => setHoveredCell(null)}
-                            onClick={() => setFullTextPopup({ content: displayVal, title: col.label })}
+                            onClick={() => {
+                              if (col.id === 'patentType') {
+                                const def = PATENT_TYPE_DEFINITIONS[displayVal] || 'No definition available for this patent type.';
+                                setFullTextPopup({ content: def, title: `Patent Type: ${displayVal}` });
+                              } else if (col.id === 'patentKind') {
+                                const category = getPatentKindCategory(displayVal);
+                                const def = PATENT_KIND_DEFINITIONS[category] || 'No definition available for this patent kind.';
+                                setFullTextPopup({ content: def, title: `Patent Kind: ${displayVal} (${category})` });
+                              } else {
+                                setFullTextPopup({ content: displayVal, title: col.label });
+                              }
+                            }}
                           >
                             {col.id === 'applicationNumber' ? (
                               <div className="flex items-center gap-2">
@@ -905,6 +1138,8 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                                   <Copy className="w-3 h-3" />
                                 </button>
                               </div>
+                            ) : (col.id === 'jurisdiction' || col.id === 'country') ? (
+                              getCountryName(displayVal)
                             ) : (
                               displayVal
                             )}
@@ -915,7 +1150,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                   ))}
                   {processedPatents.length === 0 && (
                     <tr>
-                      <td colSpan={visibleColumns.length + 2} className="p-8 text-center text-slate-500">
+                      <td colSpan={visibleColumns.length + 3} className="p-8 text-center text-slate-500">
                         No patents match the current filters.
                       </td>
                     </tr>
@@ -1005,23 +1240,27 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Filing Date</h4>
-                      <p className="text-sm font-bold text-slate-700">{previewPatent.dateFiled || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatDate(previewPatent.dateFiled)}</p>
                     </div>
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Publication Date</h4>
-                      <p className="text-sm font-bold text-slate-700">{previewPatent.datePublished || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatDate(previewPatent.datePublished)}</p>
                     </div>
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority Date</h4>
-                      <p className="text-sm font-bold text-slate-700">{previewPatent.earliestPriorityDate || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatDate(previewPatent.earliestPriorityDate)}</p>
                     </div>
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Grant Date</h4>
-                      <p className="text-sm font-bold text-slate-700">{previewPatent.dateGranted || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatDate(previewPatent.dateGranted)}</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Country</h4>
+                      <p className="text-sm font-bold text-slate-700">{getCountryName(previewPatent.country || 'N/A')}</p>
+                    </div>
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Patent Type</h4>
                       <p className="text-sm font-bold text-slate-700">{previewPatent.patentType || 'N/A'}</p>
@@ -1036,7 +1275,15 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                     </div>
                     <div>
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">PCT Date</h4>
-                      <p className="text-sm font-bold text-slate-700">{previewPatent.pctDate || 'N/A'}</p>
+                      <p className="text-sm font-bold text-slate-700">{formatDate(previewPatent.pctDate)}</p>
+                    </div>
+                    <div className="col-span-2 md:col-span-4">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Family Jurisdictions</h4>
+                      <p className="text-sm font-bold text-slate-700">
+                        {previewPatent.familyJurisdictions && previewPatent.familyJurisdictions.length > 0 
+                          ? previewPatent.familyJurisdictions.map(getCountryName).join(', ') 
+                          : 'N/A'}
+                      </p>
                     </div>
                   </div>
 

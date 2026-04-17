@@ -15,7 +15,7 @@ const SystemInfoView: React.FC = () => {
     { name: 'Intelligence', detail: 'Google Gemini 3.0 Pro & Flash', icon: <Zap className="w-4 h-4" /> },
     { name: 'Persistence', detail: 'Supabase Cloud (PostgreSQL)', icon: <Database className="w-4 h-4" /> },
     { name: 'Interface', detail: 'Tailwind CSS v4-alpha', icon: <Code className="w-4 h-4" /> },
-    { name: 'Patent Data', detail: 'PatentsView & IP Australia API', icon: <Globe className="w-4 h-4" /> }
+    { name: 'Patent Data', detail: 'Google Patents & IP Australia API', icon: <Globe className="w-4 h-4" /> }
   ];
 
   return (

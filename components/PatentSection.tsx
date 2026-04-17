@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Loader2, ExternalLink, ShieldCheck, Calendar, Hash } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
-import { fetchPatentsFromPatentsView } from '../services/patentsViewService.ts';
+import { patentService } from '../services/patentService.ts';
 import { Patent } from '../types.ts';
 
 interface PatentSectionProps {
@@ -20,9 +20,10 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName, onPatentSear
       setLoading(true);
       setError(null);
       try {
-        // Use PatentsView directly to search by assignee
-        const data: Patent[] = await fetchPatentsFromPatentsView("", { applicant: companyName }, 10);
-        setPatents(data);
+        // Fetch up to 20 granted patents using Google Patents
+        const rawData: Patent[] = await patentService.getPatents("", { applicant: companyName }, 20, 'googlePatents');
+        const grantedPatents = rawData.filter(p => p.status === 'Granted').slice(0, 20);
+        setPatents(grantedPatents);
       } catch (err: any) {
         console.error("Failed to fetch patents:", err);
         setError(err.message || "Patent service unavailable");
@@ -55,12 +56,14 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName, onPatentSear
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{dateRange}</p>
           </div>
         </div>
-        <button 
-          onClick={() => onPatentSearchClick(companyName)}
+        <a 
+          href={`https://patents.google.com/?assignee=${encodeURIComponent(companyName)}`}
+          target="_blank"
+          rel="noreferrer"
           className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-800 transition-colors"
         >
-          Comprehensive Patent Search
-        </button>
+          Search on Google Patents
+        </a>
       </div>
 
       {loading ? (

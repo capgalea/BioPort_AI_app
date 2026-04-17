@@ -104,7 +104,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
 
   const diseaseOptions = useMemo(() => {
     const s = new Set<string>();
-    companies.forEach(c => c.pipeline.forEach(p => s.add(p.indication)));
+    companies.forEach(c => (c.pipeline || []).forEach(p => s.add(p.indication)));
     return Array.from(s).sort().filter(x => x && x.length < 40).map(x => ({ id: x, label: x }));
   }, [companies]);
 
@@ -172,7 +172,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
         if (!selectedCountries.includes(country)) return false;
       }
       if (selectedDiseases.length > 0) {
-        const hasDisease = c.pipeline.some(p => selectedDiseases.includes(p.indication));
+        const hasDisease = (c.pipeline || []).some(p => selectedDiseases.includes(p.indication));
         if (!hasDisease) return false;
       }
       return true;
@@ -194,7 +194,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ companies, onCompanyClick }
           id: c.id,
           name: c.name,
           type: 'company',
-          val: 20 + (c.pipeline.length * 2),
+          val: 20 + ((c.pipeline || []).length * 2),
           color: isDarkMode ? '#3b82f6' : '#2563eb'
         });
         nodeIds.add(c.id);

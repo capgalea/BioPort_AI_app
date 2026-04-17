@@ -2,7 +2,7 @@ export interface Patent {
   id: string;
   title: string;
   abstract: string;
-  claims: string[];
+  claims?: string[];
   inventors: string[];
   assignees: string[];
   filingDate: string;
@@ -10,4 +10,21 @@ export interface Patent {
   source: string;
   familyId?: string;
   link?: string;
+  applicationNumber?: string;
+  patentType?: string;
+  patentKind?: string;
+  earliestPriorityDate?: string;
+  publicationDate?: string;
+  status?: string;
+  country?: string;
+  dateFiled?: string;
+  dateGranted?: string;
+  pctDate?: string;
+  pct371Date?: string;
+  pct102Date?: string;
+  publishedFiledDate?: string;
+  datePublished?: string;
+  claim?: string;
+  applicants?: string[];
+  familyJurisdictions?: string[];
 }

@@ -202,17 +202,17 @@ const AcademicDashboard: React.FC<DashboardProps> = ({ institutes = [] }) => {
   };
 
   const availableChars = useMemo(() => {
-    const chars = new Set((institutes || []).map(c => c.name[0]?.toUpperCase()).filter(Boolean));
+    const chars = new Set((institutes || []).map(c => c?.name?.[0]?.toUpperCase()).filter(Boolean));
     return Array.from(chars).sort();
   }, [institutes]);
 
   const filteredOptions = useMemo(() => {
     return (institutes || [])
       .filter(c =>
-        (characterFilter.length === 0 || (c.name[0] && characterFilter.includes(c.name[0].toUpperCase()))) &&
-        c.name.toLowerCase().includes(multiSelectSearch.toLowerCase())
+        (characterFilter.length === 0 || (c?.name?.[0] && characterFilter.includes(c.name[0].toUpperCase()))) &&
+        (c?.name || '').toLowerCase().includes(multiSelectSearch.toLowerCase())
       )
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [institutes, multiSelectSearch, characterFilter]);
 
   const displayedOptions = filteredOptions.slice(0, 50);

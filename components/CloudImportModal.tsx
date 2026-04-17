@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import posthog from 'posthog-js';
 import { X, CloudLightning, Search, Loader2, CheckCircle2, MapPin, Building2, Calendar, Move, Filter, Download, ListFilter, Database, ChevronRight, Info } from 'lucide-react';
 import { supabaseService } from '../services/supabaseService.ts';
 import { CompanyData } from '../types.ts';
@@ -88,6 +89,14 @@ const CloudImportModal: React.FC<CloudImportModalProps> = ({ onClose, onImport, 
       setResults(data);
       // Reset selection on new search to avoid confusion
       setSelectedIds(new Set<string>());
+
+      // Fire the event AFTER results return (confirms search completed)
+      posthog.capture('patent_search_performed', {
+        query_length: searchQuery.length,
+        result_count: data.length,
+        source: 'cloud_repository',
+        has_filters: (filterNames.length + filterSectors.length + filterCountries.length + filterTypes.length + filterDiseases.length) > 0,
+      });
     } catch (err) {
       console.error(err);
     } finally {

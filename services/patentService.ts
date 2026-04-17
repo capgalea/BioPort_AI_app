@@ -1,7 +1,7 @@
 
 import { Patent } from '../types.ts';
-import { fetchPatentsFromPatentsView } from './patentsViewService.ts';
 import { fetchPatentsFromIPAustralia } from './ipAustraliaService.ts';
+import { fetchPatentsFromGooglePatents } from './googlePatentsService.ts';
 
 export interface PatentFilters {
   inventor?: string;
@@ -9,23 +9,102 @@ export interface PatentFilters {
   applicant?: string;
   startDate?: string;
   endDate?: string;
+  countries?: string[];
+  status?: string;
+}
+
+export interface BigQueryStats {
+  totalBytesProcessed: number;
+  estimatedCostUSD: string;
+  cacheHit: boolean;
+  dryRun?: boolean;
+}
+
+export interface PatentResults {
+  results: Patent[];
+  statistics?: BigQueryStats;
 }
 
 /**
  * PatentService handles fetching and processing patent data.
- * Integrates with PatentView and IP Australia APIs.
+ * Integrates with IP Australia APIs and Google Patents.
  */
 class PatentService {
   /**
    * Fetches patents for a specific company or topic.
    */
-  async getPatents(query: string, filters?: PatentFilters, limit?: number, source: 'patentsView' | 'ipAustralia' = 'patentsView'): Promise<Patent[]> {
-    console.log(`Fetching patents for: ${query} from ${source}`);
+  async getPatents(
+    query: string, 
+    filters?: PatentFilters, 
+    limit?: number, 
+    source: 'ipAustralia' | 'googlePatents' | 'bigquery' = 'googlePatents'
+  ): Promise<Patent[]> {
+    const result = await this.getPatentsWithStats(query, filters, limit, source, false);
+    return (result as PatentResults).results;
+  }
+
+  /**
+   * Fetches patents with additional statistics and dryRun support.
+   */
+  async getPatentsWithStats(
+    query: string, 
+    filters?: PatentFilters, 
+    limit?: number, 
+    source: 'ipAustralia' | 'googlePatents' | 'bigquery' = 'googlePatents',
+    dryRun: boolean = false
+  ): Promise<Patent[] | PatentResults> {
+    console.log(`Fetching patents for: ${query} from ${source}${dryRun ? ' (Dry Run)' : ''}`);
     try {
       if (source === 'ipAustralia') {
-        return await fetchPatentsFromIPAustralia(query, filters, limit);
+        const results = await fetchPatentsFromIPAustralia(query, filters, limit);
+        return { results };
+      } else if (source === 'googlePatents') {
+        const results = await fetchPatentsFromGooglePatents(query, filters, limit);
+        return { results };
+      } else if (source === 'bigquery') {
+        const response = await fetch('/api/bigquery/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            query, 
+            applicant: filters?.applicant, 
+            inventor: filters?.inventor, 
+            startDate: filters?.startDate,
+            endDate: filters?.endDate,
+            countries: filters?.countries,
+            status: filters?.status,
+            limit,
+            dryRun
+          })
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch from BigQuery');
+        }
+        const data = await response.json();
+        
+        if (dryRun) {
+          return {
+            results: [],
+            statistics: {
+              totalBytesProcessed: data.totalBytesProcessed,
+              estimatedCostUSD: data.estimatedCostUSD,
+              cacheHit: data.cacheHit,
+              dryRun: true
+            }
+          };
+        }
+
+        return {
+          results: data.results || [],
+          statistics: data.statistics ? {
+            totalBytesProcessed: Number(data.statistics.totalBytesProcessed),
+            cacheHit: data.statistics.cacheHit,
+            estimatedCostUSD: ((Number(data.statistics.totalBytesProcessed) / (1024 ** 4)) * 5).toFixed(4)
+          } : undefined
+        };
       }
-      return await fetchPatentsFromPatentsView(query, filters, limit);
+      throw new Error(`Unsupported source: ${source}`);
     } catch (error: any) {
       console.error("PatentService Error:", error);
       throw error;

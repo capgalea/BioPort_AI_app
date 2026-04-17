@@ -4,8 +4,29 @@ import { CompanyData, ProgressCallback, ResearcherProfile, DrugProfile, Pipeline
 import { cacheService } from "./cacheService.ts";
 import { supabaseService } from "./supabaseService.ts";
 import { patentService } from "./patentService.ts";
+import { costTracker } from "./costTracker.ts";
 
 // --- HELPER FUNCTIONS ---
+
+const generateContentWithTracking = async (ai: GoogleGenAI, params: any): Promise<GenerateContentResponse> => {
+  const response = await generateContentWithTracking(ai, params);
+  trackUsage(params.model, response);
+  return response;
+};
+
+
+const trackUsage = (model: string, response: GenerateContentResponse) => {
+  console.log('trackUsage called for model:', model, 'Metadata:', JSON.stringify(response.usageMetadata));
+  if (response.usageMetadata) {
+    costTracker.addUsage(
+      model,
+      response.usageMetadata.promptTokenCount || 0,
+      response.usageMetadata.candidatesTokenCount || 0
+    );
+  } else {
+    console.warn('No usageMetadata found in response for model:', model, 'Response:', JSON.stringify(response, null, 2));
+  }
+};
 
 const slugify = (text: string): string => {
   return text.toLowerCase().trim().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
@@ -56,7 +77,7 @@ export const checkGeminiHealth = async (): Promise<boolean> => {
   if (!apiKey) return false;
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   try {
-    await ai.models.generateContent({
+    await generateContentWithTracking(ai, {
       model: "gemini-3-flash-preview",
       contents: "ping",
     });
@@ -238,7 +259,7 @@ export const generatePatentComparisonSummary = async (
   Return a JSON object with keys "summary" (string) and "references" (array of objects with "title" and "url").
   `;
 
-  const response: GenerateContentResponse = await ai.models.generateContent({
+  const response: GenerateContentResponse = await generateContentWithTracking(ai, {
     model: "gemini-3.1-flash-lite-preview",
     contents: prompt,
     config: {
@@ -265,8 +286,108 @@ export const generatePatentComparisonSummary = async (
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  return extractJson(response.text || "{}") || { summary: "", references: [] };
 };
+
+export const runPatentAIAgent = async (
+  query: string,
+  options: {
+    useGoogleSearch: boolean,
+    context: {
+      patents?: Patent[],
+      drugs?: DrugDeepDive[],
+      companies?: CompanyData[]
+    }
+  }
+): Promise<{ summary: string, rating: string, feedback: string, references: { title: string, url: string }[] }> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) throw new Error("API Key required.");
+
+  // 1. RAG Retrieval Phase (Database)
+  let retrievedPatents: any[] = [];
+  try {
+    // Retrieve top 5 patents relevant to the query to augment the prompt
+    retrievedPatents = await patentService.getPatents(query, {}, 5);
+  } catch (e) {
+    console.warn("Patent retrieval failed during RAG", e);
+  }
+
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  
+  const prompt = `
+  You are an expert Patent AI Agent acting as a Retrieval-Augmented Generation (RAG) system.
+  Your task is to analyze the provided context data and use your tools to provide a comprehensive answer to the user's query.
+  
+  USER QUERY: "${query}"
+  
+  CONTEXT DATA:
+  
+  1. RECENT PATENT SEARCH RESULTS (from Patent Analytics page):
+  ${JSON.stringify((options.context.patents || []).slice(0, 10).map(p => ({ title: p.title, abstract: p.abstract, applicationNumber: p.applicationNumber })))}
+  
+  2. RECENT DRUG SEARCH RESULTS (from Drug Search page):
+  ${JSON.stringify((options.context.drugs || []).slice(0, 10).map(d => ({ name: d.name, description: d.description, drugClass: d.drugClass })))}
+  
+  3. COMPANIES & INSTITUTIONS (from current results):
+  ${JSON.stringify((options.context.companies || []).slice(0, 10).map(c => ({ name: c.name, sector: c.sector, description: c.description })))}
+  
+  4. DATABASE RETRIEVED PATENTS (Context):
+  ${JSON.stringify(retrievedPatents.map(p => ({ 
+    title: p.title, 
+    abstract: p.abstract, 
+    assignee: p.assignees || p.applicants || p.owners || [],
+    publicationDate: p.datePublished || p.dateGranted
+  })))}
+  
+  INSTRUCTIONS:
+  1. Synthesize all provided context data.
+  2. ${options.useGoogleSearch ? 'Use the Google Search tool to find additional latest information if needed. ALWAYS provide web links for external information.' : 'Do NOT use external search unless absolutely necessary for missing critical facts.'}
+  3. Compile a comprehensive, well-formatted summary that directly addresses the user's query.
+  4. Use numbered citations in the text summary (e.g., [1], [2]) that correspond to the references list. **Ensure the citations appear in sequential order (1, 2, 3...) as they are first mentioned in the text.**
+  5. Provide a list of specific references with titles and valid web URLs (e.g., Google Patents links, official news sources, clinical trial IDs). The order of this list MUST match the order of citations in the text.
+  6. Rate your own summary on a scale of 1-10 based on the following RUBRIC:
+     - Accuracy: Is the information factually correct?
+     - Format: Is the summary well-structured and readable?
+     - Relevance: Does it directly answer the user's query?
+     - References: Have appropriate references with valid web links been included and cited correctly in sequential order in the text?
+  7. Provide feedback on how the user could improve their query or how the summary could be improved.
+  
+  Return a JSON object with keys "summary" (string), "rating" (string), "feedback" (string), and "references" (array of objects with "title" and "url").
+  `;
+
+  const response: GenerateContentResponse = await generateContentWithTracking(ai, {
+    model: "gemini-3.1-pro-preview",
+    contents: prompt,
+    config: {
+      tools: options.useGoogleSearch ? [{ googleSearch: {} }] : [],
+      temperature: 0.2,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          rating: { type: Type.STRING },
+          feedback: { type: Type.STRING },
+          references: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                url: { type: Type.STRING }
+              },
+              required: ["title", "url"]
+            }
+          }
+        },
+        required: ["summary", "rating", "feedback", "references"]
+      }
+    }
+  });
+
+  return extractJson(response.text || "{}") || { summary: "", rating: "", feedback: "", references: [] };
+};
+
 
 // --- API INTEGRATION ---
 
@@ -299,7 +420,7 @@ export const fetchAllClinicalTrials = async (companyName: string): Promise<Pipel
   
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3.1-pro-preview", 
         contents: prompt,
         config: { 
@@ -386,7 +507,7 @@ export const fetchLatestNews = async (
   
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3-flash-preview", 
         contents: prompt,
         config: { 
@@ -635,7 +756,7 @@ export const analyzeCompanies = async (
     try {
       const response: GenerateContentResponse = await withExponentialBackoff(() => 
         raceWithSignal(
-          ai.models.generateContent({
+          generateContentWithTracking(ai, {
             model: "gemini-3-flash-preview", 
             contents: prompt,
             config: { 
@@ -704,7 +825,7 @@ export const discoverWithAgent = async (
         try {
           const response: GenerateContentResponse = await withExponentialBackoff(() => 
             raceWithSignal(
-              ai.models.generateContent({
+              generateContentWithTracking(ai, {
                   model: "gemini-3-flash-preview",
                   contents: prompt,
                   config: {
@@ -786,7 +907,7 @@ export const performDrugDeepSearch = async (
         try {
           const response: GenerateContentResponse = await withExponentialBackoff(() => 
             raceWithSignal(
-              ai.models.generateContent({
+              generateContentWithTracking(ai, {
                 model: "gemini-3-flash-preview", 
                 contents: prompt,
                 config: { 
@@ -883,7 +1004,7 @@ export const searchScienceJobs = async (filters: {
   const query = `Find 5 real science job openings: Query="${filters.keywords}", Loc="${filters.location}". Return JSON.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3-flash-preview",
         contents: query,
         config: {
@@ -907,7 +1028,7 @@ export const analyzeResearcher = async (name: string, institution: string): Prom
   const prompt = `Generate a profile for Researcher: ${name}, Institution: ${institution}. Return JSON {bio, workDescription, projects:[], publications:[{title, source, year}]}. DO NOT invent dummy data. If specific information is missing, return null or empty arrays.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3-flash-preview", 
         contents: prompt,
         config: { tools: [{ googleSearch: {} }], temperature: 0.0, thinkingConfig: { thinkingBudget: 0 } },
@@ -924,7 +1045,7 @@ export const analyzeDrug = async (drugName: string): Promise<DrugProfile | null>
   const prompt = `Create a comprehensive pharmacological profile for "${drugName}". Return JSON {name, description, mechanismOfAction, indications:[], approvalDate, drugClass, sideEffects:[]}. DO NOT invent dummy data. If specific information is missing, return null or empty arrays.`;
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3-flash-preview", 
         contents: prompt,
         config: { tools: [{ googleSearch: {} }], temperature: 0.0, thinkingConfig: { thinkingBudget: 0 } },
@@ -950,7 +1071,7 @@ export const discoverCompaniesBySector = async (
   try {
      const res: GenerateContentResponse = await withExponentialBackoff(() => 
        raceWithSignal(
-           ai.models.generateContent({
+           generateContentWithTracking(ai, {
               model: "gemini-3-flash-preview", 
               contents: prompt,
               config: { 
@@ -1016,7 +1137,7 @@ export const fetchDetailedPatentsFromIPAustralia = async (query: string): Promis
   
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
+      generateContentWithTracking(ai, {
         model: "gemini-3-flash-preview", 
         contents: prompt,
         config: { 
@@ -1245,6 +1366,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
 
   try {
     let result: GenerateContentResponse = await withExponentialBackoff(() => chat!.sendMessage({ message: newMessage }));
+    trackUsage(config.model || 'gemini-3.1-pro-preview', result);
     
     // Tool Execution Loop
     let functionCalls = result.functionCalls;
@@ -1269,6 +1391,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
           functionResponse: response,
         })),
       }));
+      trackUsage(config.model || 'gemini-3.1-pro-preview', result);
       functionCalls = result.functionCalls;
     }
 

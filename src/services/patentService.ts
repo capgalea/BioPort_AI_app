@@ -9,7 +9,7 @@ export interface Patent {
     assignee_individual_name_first: string | null;
     assignee_individual_name_last: string | null;
   }>;
-  inventors: Array<{
+  inventors: Array<{b
     inventor_name_first: string | null;
     inventor_name_last: string | null;
   }>;

@@ -169,8 +169,8 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
         const summary = filteredCompanies.map(c => ({
           name: c.name,
           sector: c.sector,
-          pipeline: c.pipeline.map(p => `${p.drugName} (${p.phase})`),
-          approved: c.keyApprovedDrugs,
+          pipeline: (c.pipeline || []).map(p => `${p.drugName} (${p.phase})`),
+          approved: c.keyApprovedDrugs || [],
           description: c.description
         }));
         contextData = JSON.stringify(summary);
@@ -480,7 +480,7 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
                     }} 
                   />
                 </div>
-                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> US Patent Intelligence (PatentsView)</span>
+                <span className="text-sm text-slate-700 flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5" /> US Patent Intelligence (Google Patents)</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer group">
                 <div className={`w-10 h-6 rounded-full p-1 transition-colors ${useDatabase ? 'bg-emerald-600' : 'bg-slate-200'}`}>

@@ -2,9 +2,32 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Dna, ArrowRight, ShieldCheck, Zap, 
-  Search, Sparkles, Briefcase, Bot, Lock, UserPlus, Shield, Workflow, Cpu, Map as MapIcon, FileText, Globe, PieChart, Pill, Activity, AlertTriangle, CheckCircle2, Loader2
+  Search, Sparkles, Briefcase, Bot, Lock, UserPlus, Shield, Workflow, Cpu, Map as MapIcon, FileText, Globe, PieChart, Pill, Activity, AlertTriangle, CheckCircle2, Loader2, DollarSign
 } from 'lucide-react';
 import { checkGeminiHealth } from '../services/geminiService';
+import { costTracker } from '../services/costTracker';
+
+const CostTrackerIndicator = () => {
+  const [cost, setCost] = useState(0);
+  console.log('Rendering CostTrackerIndicator, cost:', cost);
+
+  useEffect(() => {
+    console.log('CostTrackerIndicator mounting, subscribing to costTracker');
+    return costTracker.subscribe(setCost);
+  }, []);
+
+
+  // if (cost === 0) return null;
+
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm mb-8 ml-2">
+      <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+        Session LLM Cost: ${cost.toFixed(4)}
+      </span>
+    </div>
+  );
+};
 
 const GeminiStatusIndicator = () => {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
@@ -101,7 +124,7 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
     },
     {
       title: "Prospect Generator",
-      description: "Generate and manage customer prospects for your biotech outreach. Now supporting US (PatentsView) and Australian (IP Australia) patent data.",
+      description: "Generate and manage customer prospects for your biotech outreach. Now supporting US (Google Patents) and Australian (IP Australia) patent data.",
       icon: <UserPlus className="w-5 h-5 text-white" />,
       action: () => onNavigate('prospectGenerator'),
       btnText: "Generate Prospects",
@@ -133,7 +156,10 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
         </div>
 
         <div className="max-w-5xl mx-auto relative z-10 text-center">
-          <GeminiStatusIndicator />
+          <div className="flex justify-center items-center flex-wrap">
+            <GeminiStatusIndicator />
+            <CostTrackerIndicator />
+          </div>
           <h1 className="text-5xl sm:text-7xl font-black text-slate-900 mb-6 tracking-tighter leading-[1.1]">
             Accelerate <br className="hidden sm:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Biotech Intelligence.</span>

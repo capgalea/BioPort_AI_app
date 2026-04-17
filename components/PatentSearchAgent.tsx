@@ -10,7 +10,7 @@ interface Database {
 }
 
 const DATABASES: Database[] = [
-  { id: 'uspto', name: 'USPTO PatentsView', desc: 'US patent grants & applications', badge: 'US' },
+  { id: 'uspto', name: 'USPTO (via Google Patents)', desc: 'US patent grants & applications', badge: 'US' },
   { id: 'google', name: 'Google Patents', desc: '120+ patent offices incl. WIPO PCT', badge: 'GL' },
 ];
 
@@ -58,8 +58,18 @@ const PatentSearchAgent: React.FC = () => {
       }
 
       setResults(allResults);
-    } catch (err) {
-      setError('Search failed. Please try again.');
+    } catch (err: any) {
+      const backendError = err.response?.data?.error;
+      const backendDetails = err.response?.data?.details?.error;
+      let displayError = err.message || 'Search failed. Please try again.';
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        displayError = `Authentication error with Google Patents (SerpApi). Please ensure you have added a valid SERPAPI_KEY to your environment variables. (${backendDetails || backendError || err.message})`;
+      } else if (backendError) {
+        displayError = `${backendError} ${backendDetails ? `(${backendDetails})` : ''}`;
+      }
+      
+      setError(displayError);
     } finally {
       setIsRunning(false);
     }

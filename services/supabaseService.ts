@@ -454,36 +454,52 @@ export const supabaseService = {
   getAllCompanies: async (limit: number = 10000): Promise<CompanyData[]> => {
     if (!supabase || isOffline) return [];
     try {
-      let allRows: any[] = [];
-      let from = 0;
-      const batchSize = 1000;
+      // First, get the actual count to avoid unnecessary requests
+      const { count, error: countError } = await supabase
+        .from(TABLE_NAME)
+        .select('*', { count: 'exact', head: true });
+        
+      if (countError) throw countError;
       
-      while (true) {
-        const remaining = limit - allRows.length;
-        if (remaining <= 0) break;
-        
-        const currentBatchSize = Math.min(batchSize, remaining);
+      const actualLimit = Math.min(limit, count || 0);
+      if (actualLimit === 0) return [];
 
-        console.log(`Fetching batch from ${from} to ${from + currentBatchSize - 1}`);
-        const { data, error } = await supabase
-          .from(TABLE_NAME)
-          .select('id, data, last_updated')
-          .range(from, from + currentBatchSize - 1);
-          
-        if (error) {
-            console.error("Supabase fetch error:", error);
-            break;
-        }
-        if (!data || data.length === 0) break;
-        
-        allRows.push(...data);
-        
-        if (data.length < currentBatchSize) break;
-        
-        from += currentBatchSize;
+      const BATCH_SIZE = 1000;
+      const CONCURRENCY = 10;
+      const totalBatches = Math.ceil(actualLimit / BATCH_SIZE);
+      const offsets = Array.from({length: totalBatches}, (_, k) => k * BATCH_SIZE);
+      
+      const allRows: any[] = [];
+      
+      const fetchBatch = async (from: number) => {
+          const to = Math.min(from + BATCH_SIZE - 1, actualLimit - 1);
+          const { data, error } = await supabase!
+            .from(TABLE_NAME)
+            .select('id, data, last_updated')
+            .range(from, to);
+            
+          if (error) throw error;
+          return data || [];
+      };
+
+      const executing: Promise<void>[] = [];
+      
+      for (const from of offsets) {
+         const p = fetchBatch(from).then(data => {
+             allRows.push(...data);
+         }).catch(e => console.error("Batch fetch error:", e));
+
+         executing.push(p);
+         const clean = p.then(() => executing.splice(executing.indexOf(clean), 1));
+         
+         if (executing.length >= CONCURRENCY) {
+            await Promise.race(executing);
+         }
       }
       
-      return allRows.map(row => ({ ...row.data, id: row.id, lastUpdated: row.last_updated }));
+      await Promise.all(executing);
+      
+      return allRows.map((row: any) => ({ ...row.data, id: row.id, lastUpdated: row.last_updated }));
     } catch (err) {
       console.error("Supabase getAllCompanies error:", err);
       if (err instanceof TypeError && err.message.includes('fetch')) isOffline = true;

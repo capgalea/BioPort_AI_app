@@ -5,7 +5,7 @@ import axios from 'axios';
 const DATABASES = {
   ip_australia: 'IP Australia (AusPat)',
   epo: 'EPO / OPS',
-  uspto: 'USPTO PatentsView',
+  uspto: 'USPTO (via Google Patents)',
   google: 'Google Patents',
   lens: 'Lens.org',
   espacenet: 'Espacenet'
@@ -53,7 +53,7 @@ const PatentSearchPage: React.FC = () => {
         });
 
         setResults({
-          analysis: `Found ${response.data.total_hits || patents.length} results from USPTO PatentsView.`,
+          analysis: `Found ${response.data.total_hits || patents.length} results from USPTO (via Google Patents).`,
           patents: patents,
           stats: {
             total_found: response.data.total_hits || patents.length,
@@ -74,7 +74,17 @@ const PatentSearchPage: React.FC = () => {
         });
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Search failed');
+      const backendError = err.response?.data?.error;
+      const backendDetails = err.response?.data?.details?.error;
+      let displayError = err.message || 'Search failed';
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        displayError = `Authentication error with Google Patents (SerpApi). Please ensure you have added a valid SERPAPI_KEY to your environment variables. (${backendDetails || backendError || err.message})`;
+      } else if (backendError) {
+        displayError = `${backendError} ${backendDetails ? `(${backendDetails})` : ''}`;
+      }
+      
+      setError(displayError);
     } finally {
       setLoading(false);
     }
