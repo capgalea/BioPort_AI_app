@@ -127,6 +127,15 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
       btnText: "Generate Prospects",
       color: "from-pink-500 to-rose-500",
       image: "https://images.unsplash.com/photo-1552664730-d307ca884978?q=80&w=800&auto=format&fit=crop"
+    },
+    {
+      title: "Patents Intelligence",
+      description: "Analyze patent landscapes, inventor networks, and technological trajectories.",
+      icon: <FileText className="w-5 h-5 text-white" />,
+      action: () => onNavigate('patentAnalytics'),
+      btnText: "Explore Patents",
+      color: "from-orange-500 to-amber-500",
+      image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=800&auto=format&fit=crop"
     }
   ];
 

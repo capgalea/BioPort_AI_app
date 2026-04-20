@@ -634,6 +634,20 @@ function App() {
     
     const possibleSectors = new Set<string>();
     
+    const getCellValue = (c: CompanyData, colId: string): string => {
+        switch (colId) {
+            case 'name': return c.name;
+            case 'entityType': return getEntityCategory(c);
+            case 'sector': return c.sector;
+            case 'hqAddress': return c.contact?.hqAddress || '';
+            case 'pipelineCount': return String(c.pipeline?.length || 0);
+            case 'approvedCount': return String(c.keyApprovedDrugs?.length || 0);
+            case 'lastUpdated': return formatDate(c.lastUpdated);
+            case 'acquisition': return c.acquisitionStatus || 'Independent';
+            default: return '';
+        }
+    };
+    
     // We filter allCompanies using all filters EXCEPT selectedSectors
     allCompanies.forEach(c => {
       const matchesId = selectedCompanyIds.length === 0 || selectedCompanyIds.includes(c.id);
@@ -647,6 +661,12 @@ function App() {
         (c.acquisitionStatus || '').toLowerCase().includes(lowerGlobalFilter) ||
         getEntityCategory(c).toLowerCase().includes(lowerGlobalFilter);
       if (!matchesGlobal) return;
+
+      const matchesColumnFilters = activeColumnFilters.every(([colId, selectedValues]) => {
+          const cellValue = getCellValue(c, colId);
+          return Array.isArray(selectedValues) && selectedValues.includes(cellValue);
+      });
+      if (!matchesColumnFilters) return;
 
       const { country, region } = parseAddress(c.contact?.hqAddress || '');
       if (selectedCountries.length > 0 && !selectedCountries.includes(country)) return;
