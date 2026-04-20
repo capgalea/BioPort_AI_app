@@ -12,11 +12,33 @@ const DATABASES = {
 };
 
 const PatentSearchPage: React.FC = () => {
-  const [query, setQuery] = useState('');
-  const [selectedDbs, setSelectedDbs] = useState<string[]>(['uspto']);
+  const [query, setQuery] = useState(() => localStorage.getItem('bioport_psp_query') || '');
+  const [selectedDbs, setSelectedDbs] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_psp_dbs');
+    return saved ? JSON.parse(saved) : ['uspto'];
+  });
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<any>(() => {
+    const saved = localStorage.getItem('bioport_psp_results');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    localStorage.setItem('bioport_psp_query', query);
+  }, [query]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bioport_psp_dbs', JSON.stringify(selectedDbs));
+  }, [selectedDbs]);
+
+  React.useEffect(() => {
+    if (results) {
+      localStorage.setItem('bioport_psp_results', JSON.stringify(results));
+    } else {
+      localStorage.removeItem('bioport_psp_results');
+    }
+  }, [results]);
 
   const toggleDb = (id: string) => {
     setSelectedDbs(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);

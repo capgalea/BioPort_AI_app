@@ -502,36 +502,73 @@ function App() {
 
   // Optimized Initial Data Load
   useEffect(() => {
+    let _mounted = true;
     const loadData = async () => {
       try {
-        // Parallelize count check and first page load
         const countPromise = cacheService.getCompanyCount();
-        
         const count = await countPromise;
         setTotalCacheCount(count);
         
         if (count > 0) {
-          const cached = await cacheService.getPaginatedCompanies(INITIAL_LOAD_COUNT);
-          setAllCompanies(cached);
-        } else if (supabaseService.isConfigured()) {
-          const cloudData = await supabaseService.getAllCompanies(INITIAL_LOAD_COUNT);
-          if (cloudData && cloudData.length > 0) {
-            const sanitized = cloudData.map(sanitizeCompanyData);
-            await cacheService.saveBatchCompanies(sanitized, "Global");
-            setAllCompanies(sanitized);
-            setTotalCacheCount(sanitized.length);
-            const now = new Date().toISOString();
-            localStorage.setItem('bioport_last_synced', now);
-            setLastSynced(now);
+          // If cached, load a small chunk immediately to unblock UI
+          const cachedFirstPage = await cacheService.getPaginatedCompanies(50);
+          if (_mounted) {
+            setAllCompanies(cachedFirstPage);
+            setIsInitializing(false);
           }
+          
+          // Then load the rest in the background
+          if (count > 50) {
+            setTimeout(async () => {
+              try {
+                const restCached = await cacheService.getPaginatedCompanies(INITIAL_LOAD_COUNT);
+                 if (_mounted) setAllCompanies(restCached);
+              } catch(e) {}
+            }, 100);
+          }
+          
+        } else if (supabaseService.isConfigured()) {
+          // No cache: fetch first 50 from cloud immediately
+          const firstCloudData = await supabaseService.getAllCompanies(50);
+          if (firstCloudData && firstCloudData.length > 0) {
+            const sanitizedFirst = firstCloudData.map(sanitizeCompanyData);
+            await cacheService.saveBatchCompanies(sanitizedFirst, "Global");
+            if (_mounted) {
+               setAllCompanies(sanitizedFirst);
+               setTotalCacheCount(sanitizedFirst.length);
+               setIsInitializing(false);
+            }
+            
+            // Then fetch the rest in the background
+            setTimeout(async () => {
+              try {
+                const restCloudData = await supabaseService.getAllCompanies(INITIAL_LOAD_COUNT);
+                if (restCloudData && restCloudData.length > 0) {
+                  const sanitizedRest = restCloudData.map(sanitizeCompanyData);
+                  await cacheService.saveBatchCompanies(sanitizedRest, "Global");
+                  if (_mounted) {
+                     setAllCompanies(sanitizedRest);
+                     setTotalCacheCount(sanitizedRest.length);
+                     const now = new Date().toISOString();
+                     localStorage.setItem('bioport_last_synced', now);
+                     setLastSynced(now);
+                  }
+                }
+              } catch(e) {}
+            }, 1000); // give the UI a second to breathe
+          } else {
+             if (_mounted) setIsInitializing(false);
+          }
+        } else {
+          if (_mounted) setIsInitializing(false);
         }
       } catch (err) {
         console.error("Failed to load initial data", err);
-      } finally {
-        setIsInitializing(false);
+        if (_mounted) setIsInitializing(false);
       }
     };
     loadData();
+    return () => { _mounted = false; };
   }, []);
 
   const filteredCompanies = useMemo(() => {

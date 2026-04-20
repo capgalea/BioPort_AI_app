@@ -89,23 +89,33 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [source, setSource] = useState<'ipAustralia' | 'googlePatents' | 'bigquery'>('bigquery');
+  const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('bioport_patent_search_query') || '');
+  const [source, setSource] = useState<'ipAustralia' | 'googlePatents' | 'bigquery'>(() => (localStorage.getItem('bioport_patent_source') as any) || 'bigquery');
+  const [inventorName, setInventorName] = useState(() => localStorage.getItem('bioport_patent_inventor_name') || '');
+  const [applicant, setApplicant] = useState(() => localStorage.getItem('bioport_patent_applicant') || initialCompany || '');
+  const [startYear, setStartYear] = useState(() => Number(localStorage.getItem('bioport_patent_start_year')) || 2010);
+  const [endYear, setEndYear] = useState(() => Number(localStorage.getItem('bioport_patent_end_year')) || new Date().getFullYear());
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_patent_selected_countries');
+    return saved ? JSON.parse(saved) : ['WO'];
+  });
   const [aiQuery, setAiQuery] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [inventorName, setInventorName] = useState('');
-  const [applicant, setApplicant] = useState(initialCompany || '');
-  const [startYear, setStartYear] = useState(2010);
-  const [endYear, setEndYear] = useState(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const countryDropdownRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     localStorage.setItem('bioport_patent_analytics_results', JSON.stringify(patents));
-  }, [patents]);
+    localStorage.setItem('bioport_patent_search_query', searchQuery);
+    localStorage.setItem('bioport_patent_source', source);
+    localStorage.setItem('bioport_patent_inventor_name', inventorName);
+    localStorage.setItem('bioport_patent_applicant', applicant);
+    localStorage.setItem('bioport_patent_start_year', startYear.toString());
+    localStorage.setItem('bioport_patent_end_year', endYear.toString());
+    localStorage.setItem('bioport_patent_selected_countries', JSON.stringify(selectedCountries));
+  }, [patents, searchQuery, source, inventorName, applicant, startYear, endYear, selectedCountries]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -599,7 +609,9 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
               >
                 <span className="truncate">
                   {selectedCountries.length > 0 
-                    ? `${selectedCountries.length} Selected` 
+                    ? selectedCountries.length === 1
+                      ? `${selectedCountries[0]} - ${getCountryName(selectedCountries[0])}`
+                      : `${selectedCountries.length} Selected (${selectedCountries.join(', ')})`
                     : 'All Countries'}
                 </span>
                 <ChevronDown className="w-4 h-4 text-slate-400" />

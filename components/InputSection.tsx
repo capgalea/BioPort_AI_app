@@ -42,16 +42,46 @@ const AGENT_SOURCES = [
 ];
 
 const InputSection: React.FC<InputSectionProps> = ({ onSearch, onStop, isLoading, onOpenSettings }) => {
-  const [mode, setMode] = useState<SearchMode>('names');
-  const [inputText, setInputText] = useState('');
-  const [region, setRegion] = useState('Global');
-  const [entityFilters, setEntityFilters] = useState<string[]>([]);
-  const [agentSources, setAgentSources] = useState<string[]>(['google_search', 'internal_db']);
-  const [limitStr, setLimitStr] = useState<string>("15");
+  const [mode, setMode] = useState<SearchMode>(() => (localStorage.getItem('bioport_input_mode') as SearchMode) || 'names');
+  const [inputText, setInputText] = useState(() => localStorage.getItem('bioport_input_text') || '');
+  const [region, setRegion] = useState(() => localStorage.getItem('bioport_input_region') || 'Global');
+  const [entityFilters, setEntityFilters] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_input_filters');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [agentSources, setAgentSources] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_input_agent_sources');
+    return saved ? JSON.parse(saved) : ['google_search', 'internal_db'];
+  });
+  const [limitStr, setLimitStr] = useState<string>(() => localStorage.getItem('bioport_input_limit') || "15");
   
   const [isCloudConfigured, setIsCloudConfigured] = useState(supabaseService.isConfigured());
   const [showHistory, setShowHistory] = useState(false);
   const [historyItems, setHistoryItems] = useState<SearchHistoryItem[]>([]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_mode', mode);
+  }, [mode]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_text', inputText);
+  }, [inputText]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_region', region);
+  }, [region]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_filters', JSON.stringify(entityFilters));
+  }, [entityFilters]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_agent_sources', JSON.stringify(agentSources));
+  }, [agentSources]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_input_limit', limitStr);
+  }, [limitStr]);
 
   useEffect(() => {
     const check = () => setIsCloudConfigured(supabaseService.isConfigured());

@@ -10,7 +10,7 @@ import DrugDetailModal from './DrugDetailModal.tsx';
 import MolecularViewerModal from './MolecularViewerModal.tsx';
 
 const DrugSearchView: React.FC = () => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => localStorage.getItem('bioport_drug_search_query') || '');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<(DrugDeepDive & { id: string })[]>(() => {
     const saved = localStorage.getItem('bioport_drug_search_results');
@@ -20,6 +20,10 @@ const DrugSearchView: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('bioport_drug_search_results', JSON.stringify(results));
   }, [results]);
+
+  useEffect(() => {
+    localStorage.setItem('bioport_drug_search_query', query);
+  }, [query]);
   const [error, setError] = useState<React.ReactNode | null>(null);
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());

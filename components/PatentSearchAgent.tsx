@@ -15,11 +15,29 @@ const DATABASES: Database[] = [
 ];
 
 const PatentSearchAgent: React.FC = () => {
-  const [query, setQuery] = useState('');
-  const [selectedDbs, setSelectedDbs] = useState<string[]>(['uspto', 'google']);
+  const [query, setQuery] = useState(() => localStorage.getItem('bioport_psa_query') || '');
+  const [selectedDbs, setSelectedDbs] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_psa_dbs');
+    return saved ? JSON.parse(saved) : ['uspto', 'google'];
+  });
   const [isRunning, setIsRunning] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<any[]>(() => {
+    const saved = localStorage.getItem('bioport_psa_results');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [error, setError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    localStorage.setItem('bioport_psa_query', query);
+  }, [query]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bioport_psa_dbs', JSON.stringify(selectedDbs));
+  }, [selectedDbs]);
+
+  React.useEffect(() => {
+    localStorage.setItem('bioport_psa_results', JSON.stringify(results));
+  }, [results]);
 
   const toggleDb = (id: string) => {
     setSelectedDbs(prev => 

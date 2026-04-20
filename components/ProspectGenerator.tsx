@@ -275,6 +275,56 @@ const MOCK_PROSPECTS: Prospect[] = [
   },
 ];
 
+const AVAILABLE_COUNTRIES = [
+  { code: 'US', name: 'United States' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'EP', name: 'Europe' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'CN', name: 'China' },
+];
+
+const CountryFilter: React.FC<{ selected: string[], onChange: (c: string[]) => void }> = ({ selected, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const toggleCountry = (code: string) => {
+    onChange(selected.includes(code) ? selected.filter(c => c !== code) : [...selected, code]);
+  };
+
+  const label = selected.length === 0 
+    ? "All Countries" 
+    : selected.length === 1 
+      ? AVAILABLE_COUNTRIES.find(c => c.code === selected[0])?.name || selected[0]
+      : `${selected.length} countries selected`;
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 text-left flex justify-between items-center outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 h-10"
+      >
+        <span className="truncate">{label}</span>
+        <span className="text-slate-400">▼</span>
+      </button>
+      {isOpen && (
+        <div className="absolute top-12 left-0 w-full bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-2">
+          {AVAILABLE_COUNTRIES.map(c => (
+            <button
+              key={c.code}
+              onClick={() => toggleCountry(c.code)}
+              className={`w-full text-left px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2 ${selected.includes(c.code) ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <div className={`w-4 h-4 rounded border flex items-center justify-center ${selected.includes(c.code) ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                {selected.includes(c.code) && <span className="text-white text-[10px]">✓</span>}
+              </div>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const SEARCH_TERMS = [
@@ -289,19 +339,37 @@ const SEARCH_TERMS = [
 ];
 
 export default function ProspectGenerator() {
-  const [query, setQuery] = useState("cancer immunotherapy");
-  const [customQuery, setCustomQuery] = useState("");
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [query, setQuery] = useState(() => localStorage.getItem('bioport_pg_query') || "cancer immunotherapy");
+  const [customQuery, setCustomQuery] = useState(() => localStorage.getItem('bioport_pg_customQuery') || "");
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_pg_countries');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [prospects, setProspects] = useState<Prospect[]>(() => {
+    const saved = localStorage.getItem('bioport_pg_prospects');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [usedMock, setUsedMock] = useState(false);
-  const [activeSegment, setActiveSegment] = useState<Prospect["segment"] | "All">("All");
-  const [selectedProspects, setSelectedProspects] = useState<Set<string>>(new Set());
+  const [usedMock, setUsedMock] = useState(() => localStorage.getItem('bioport_pg_usedMock') === 'true');
+  const [activeSegment, setActiveSegment] = useState<Prospect["segment"] | "All">(() => (localStorage.getItem('bioport_pg_segment') as Prospect["segment"] | "All") || "All");
+  const [selectedProspects, setSelectedProspects] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('bioport_pg_selected');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [searchComplete, setSearchComplete] = useState(false);
+  const [searchComplete, setSearchComplete] = useState(() => localStorage.getItem('bioport_pg_searchComplete') === 'true');
   const [outreachDraft, setOutreachDraft] = useState<string | null>(null);
   const [draftTarget, setDraftTarget] = useState<Prospect | null>(null);
+
+  React.useEffect(() => { localStorage.setItem('bioport_pg_query', query); }, [query]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_customQuery', customQuery); }, [customQuery]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_countries', JSON.stringify(selectedCountries)); }, [selectedCountries]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_prospects', JSON.stringify(prospects)); }, [prospects]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_usedMock', String(usedMock)); }, [usedMock]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_segment', activeSegment); }, [activeSegment]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_selected', JSON.stringify(Array.from(selectedProspects))); }, [selectedProspects]);
+  React.useEffect(() => { localStorage.setItem('bioport_pg_searchComplete', String(searchComplete)); }, [searchComplete]);
 
   const effectiveQuery = customQuery.trim() || query;
 
@@ -529,20 +597,12 @@ I'd love your input as an early user. Would a brief call work for you?
                 onKeyDown={(e) => e.key === "Enter" && runSearch()}
               />
             </div>
-            <div className="w-48">
+            <div className="w-64 relative">
               <label className="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Countries</label>
-              <select
-                multiple
-                className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 h-10"
-                value={selectedCountries}
-                onChange={(e) => setSelectedCountries(Array.from(e.target.selectedOptions, option => option.value))}
-              >
-                <option value="US">United States</option>
-                <option value="AU">Australia</option>
-                <option value="EP">Europe</option>
-                <option value="JP">Japan</option>
-                <option value="CN">China</option>
-              </select>
+              <CountryFilter 
+                selected={selectedCountries} 
+                onChange={setSelectedCountries} 
+              />
             </div>
             <button
               className={`px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-all ${loading ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}

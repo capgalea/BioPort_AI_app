@@ -33,20 +33,33 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
   const [sidebarTab, setSidebarTab] = useState<'config' | 'history'>('config');
   const [pastSessions, setPastSessions] = useState<ChatSession[]>([]);
 
-  // Settings
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
-  const [useGoogleSearch, setUseGoogleSearch] = useState(false);
-  const [academicFocus, setAcademicFocus] = useState(false);
-  const [useDatabase, setUseDatabase] = useState(false);
-  const [usePatentSearch, setUsePatentSearch] = useState(false);
-  const [useUSPatentSearch, setUseUSPatentSearch] = useState(false);
-  
   // Persistent Chat Session Ref
   const chatInstanceRef = useRef<any>(null);
   const lastContextHashRef = useRef<string>('');
 
   // Filters
-  const [selectedDiseases, setSelectedDiseases] = useState<string[]>([]);
+  const [selectedDiseases, setSelectedDiseases] = useState<string[]>(() => {
+    const saved = localStorage.getItem('bioport_agent_selected_diseases');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Settings
+  const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('bioport_agent_selected_model') || MODELS[0].id);
+  const [useGoogleSearch, setUseGoogleSearch] = useState(() => localStorage.getItem('bioport_agent_use_google_search') === 'true');
+  const [academicFocus, setAcademicFocus] = useState(() => localStorage.getItem('bioport_agent_academic_focus') === 'true');
+  const [useDatabase, setUseDatabase] = useState(() => localStorage.getItem('bioport_agent_use_database') === 'true');
+  const [usePatentSearch, setUsePatentSearch] = useState(() => localStorage.getItem('bioport_agent_use_patent_search') === 'true');
+  const [useUSPatentSearch, setUseUSPatentSearch] = useState(() => localStorage.getItem('bioport_agent_use_us_patent_search') === 'true');
+  
+  useEffect(() => {
+    localStorage.setItem('bioport_agent_selected_diseases', JSON.stringify(selectedDiseases));
+    localStorage.setItem('bioport_agent_selected_model', selectedModel);
+    localStorage.setItem('bioport_agent_use_google_search', useGoogleSearch.toString());
+    localStorage.setItem('bioport_agent_academic_focus', academicFocus.toString());
+    localStorage.setItem('bioport_agent_use_database', useDatabase.toString());
+    localStorage.setItem('bioport_agent_use_patent_search', usePatentSearch.toString());
+    localStorage.setItem('bioport_agent_use_us_patent_search', useUSPatentSearch.toString());
+  }, [selectedDiseases, selectedModel, useGoogleSearch, academicFocus, useDatabase, usePatentSearch, useUSPatentSearch]);
 
   const diseaseOptions = useMemo(() => {
     const diseases = new Set<string>();
@@ -77,10 +90,17 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
     setIsPreviewMode(window.self !== window.top);
     
     // Initial Load of History
-    refreshHistory();
-    
-    // Start fresh or load last? Let's start fresh.
-    initializeSession();
+    refreshHistory().then(() => {
+      // Find the most recent session and load it
+      cacheService.getChatSessions().then(sessions => {
+        if (sessions.length > 0) {
+          const sorted = sessions.sort((a,b) => b.lastUpdated - a.lastUpdated);
+          loadSession(sorted[0]);
+        } else {
+          initializeSession();
+        }
+      });
+    });
   }, []);
 
   const refreshHistory = async () => {

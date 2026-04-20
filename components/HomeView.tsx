@@ -9,15 +9,12 @@ import { costTracker } from '../services/costTracker';
 
 const CostTrackerIndicator = () => {
   const [cost, setCost] = useState(0);
-  console.log('Rendering CostTrackerIndicator, cost:', cost);
 
   useEffect(() => {
-    console.log('CostTrackerIndicator mounting, subscribing to costTracker');
     return costTracker.subscribe(setCost);
   }, []);
 
-
-  // if (cost === 0) return null;
+  if (cost === 0) return null;
 
   return (
     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200 shadow-sm mb-8 ml-2">

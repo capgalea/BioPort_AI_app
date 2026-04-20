@@ -9,22 +9,27 @@ import { costTracker } from "./costTracker.ts";
 // --- HELPER FUNCTIONS ---
 
 const generateContentWithTracking = async (ai: GoogleGenAI, params: any): Promise<GenerateContentResponse> => {
-  const response = await generateContentWithTracking(ai, params);
-  trackUsage(params.model, response);
+  const response = await withExponentialBackoff(() => ai.models.generateContent({
+    model: params.model || 'gemini-3-flash-preview',
+    contents: params.contents,
+    config: {
+      ...(params.config || {}),
+      tools: params.tools,
+      toolConfig: params.toolConfig
+    }
+  }));
+  trackUsage(params.model || 'gemini-3-flash-preview', response);
   return response;
 };
 
 
 const trackUsage = (model: string, response: GenerateContentResponse) => {
-  console.log('trackUsage called for model:', model, 'Metadata:', JSON.stringify(response.usageMetadata));
   if (response.usageMetadata) {
     costTracker.addUsage(
       model,
       response.usageMetadata.promptTokenCount || 0,
       response.usageMetadata.candidatesTokenCount || 0
     );
-  } else {
-    console.warn('No usageMetadata found in response for model:', model, 'Response:', JSON.stringify(response, null, 2));
   }
 };
 
