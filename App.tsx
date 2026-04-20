@@ -629,9 +629,41 @@ function App() {
   }, [allCompanies, globalFilter, columnFilters, selectedCompanyIds, selectedSectors, selectedCountries, selectedRegions, selectedKeywords]);
 
   const sectorOptions = useMemo(() => {
-    const sectors = new Set(allCompanies.map(c => c.sector).filter(Boolean));
-    return Array.from(sectors).sort();
-  }, [allCompanies]);
+    const activeColumnFilters = Object.entries(columnFilters).filter(([, values]) => Array.isArray(values) && values.length > 0);
+    const lowerGlobalFilter = globalFilter.toLowerCase().trim();
+    
+    const possibleSectors = new Set<string>();
+    
+    // We filter allCompanies using all filters EXCEPT selectedSectors
+    allCompanies.forEach(c => {
+      const matchesId = selectedCompanyIds.length === 0 || selectedCompanyIds.includes(c.id);
+      if(!matchesId) return;
+      const matchesGlobal = !lowerGlobalFilter || 
+        c.name.toLowerCase().includes(lowerGlobalFilter) ||
+        c.sector.toLowerCase().includes(lowerGlobalFilter) ||
+        c.description.toLowerCase().includes(lowerGlobalFilter) ||
+        (c.contact?.hqAddress || '').toLowerCase().includes(lowerGlobalFilter) ||
+        (c.acquiredBy || '').toLowerCase().includes(lowerGlobalFilter) ||
+        (c.acquisitionStatus || '').toLowerCase().includes(lowerGlobalFilter) ||
+        getEntityCategory(c).toLowerCase().includes(lowerGlobalFilter);
+      if (!matchesGlobal) return;
+
+      const { country, region } = parseAddress(c.contact?.hqAddress || '');
+      if (selectedCountries.length > 0 && !selectedCountries.includes(country)) return;
+      if (selectedRegions.length > 0 && !selectedRegions.includes(region)) return;
+
+      if (selectedKeywords.length > 0) {
+        const companyText = `${c.name} ${c.description} ${c.sector} ${c.contact?.hqAddress || ''} ${c.keyTechnologies.join(' ')}`.toLowerCase();
+        const matchesAnyKeyword = selectedKeywords.some(kw => companyText.includes(kw.toLowerCase()));
+        if (!matchesAnyKeyword) return;
+      }
+
+      if (c.sector) possibleSectors.add(c.sector);
+    });
+
+    selectedSectors.forEach(s => possibleSectors.add(s));
+    return Array.from(possibleSectors).sort();
+  }, [allCompanies, globalFilter, columnFilters, selectedCompanyIds, selectedCountries, selectedRegions, selectedKeywords, selectedSectors]);
 
   const countryOptions = useMemo(() => {
     const countries = new Set(allCompanies.map(c => parseAddress(c.contact?.hqAddress || '').country).filter(Boolean));
@@ -1199,7 +1231,7 @@ function App() {
         {isSettingsOpen && <CloudSettingsModal onClose={() => setIsSettingsOpen(false)} onConfigured={() => {
             posthog.capture('cloud_reconfigured');
         }} />}
-        {isCloudImportOpen && <CloudImportModal onClose={() => setIsCloudImportOpen(false)} onImport={handleCloudImport} initialQuery={globalFilter} limit={100} />}
+        {isCloudImportOpen && <CloudImportModal onClose={() => setIsCloudImportOpen(false)} onImport={handleCloudImport} initialQuery={globalFilter} limit={100} availableSectors={sectorOptions} />}
         {pageHelp && <InstructionModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} title={pageHelp.title} instructions={pageHelp.instructions} />}
         <FeedbackPopup />
       </Suspense>

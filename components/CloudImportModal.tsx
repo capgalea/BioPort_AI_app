@@ -11,6 +11,7 @@ interface CloudImportModalProps {
   onImport: (companies: CompanyData[]) => void;
   initialQuery?: string;
   limit?: number;
+  availableSectors?: string[];
 }
 
 // Helper to extract country from address
@@ -20,7 +21,7 @@ const getCountry = (address?: string) => {
   return parts[parts.length - 1].trim();
 };
 
-const CloudImportModal: React.FC<CloudImportModalProps> = ({ onClose, onImport, initialQuery = '', limit = 50 }) => {
+const CloudImportModal: React.FC<CloudImportModalProps> = ({ onClose, onImport, initialQuery = '', limit = 50, availableSectors }) => {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -156,12 +157,12 @@ const CloudImportModal: React.FC<CloudImportModalProps> = ({ onClose, onImport, 
 
     return {
       names: Array.from(names).sort().map(toOption),
-      sectors: Array.from(sectors).sort().map(toOption),
+      sectors: availableSectors && availableSectors.length > 0 ? availableSectors.map(toOption) : Array.from(sectors).sort().map(toOption),
       countries: Array.from(countries).sort().map(toOption),
       types: Array.from(types).sort().map(toOption),
       diseases: Array.from(diseases).sort().map(toOption),
     };
-  }, [results]);
+  }, [results, availableSectors]);
 
   // Filter Logic
   const filteredResults = useMemo(() => {
