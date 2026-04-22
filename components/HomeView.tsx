@@ -288,7 +288,7 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
                      <span className="text-blue-400">Grounding Technology.</span>
                   </h2>
                   <p className="text-slate-400 text-lg leading-relaxed mb-8">
-                     Unlike standard LLMs, AI-generated output is <span className="text-white font-bold">fact-checked using Google Search</span> and cross-referenced against real-time clinical, drug, and academic registries. We bridge the gap between AI reasoning and primary source verification.
+                     Unlike standard LLMs, AI-generated output is <span className="text-white font-bold">fact-checked using Google Search</span> and cross-referenced against real-time clinical, drug, academic registries, and intellectual property databases like Google Patents and PubChem. We bridge the gap between AI reasoning and primary source verification.
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -299,6 +299,14 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
                      <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
                         <div className="text-emerald-400 font-black text-xs uppercase tracking-widest mb-1">Academic</div>
                         <div className="text-white text-sm font-bold">PubMed Literature GND</div>
+                     </div>
+                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                        <div className="text-amber-400 font-black text-xs uppercase tracking-widest mb-1">IP & Patents</div>
+                        <div className="text-white text-sm font-bold">Google Patents Search</div>
+                     </div>
+                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl">
+                        <div className="text-purple-400 font-black text-xs uppercase tracking-widest mb-1">Compounds</div>
+                        <div className="text-white text-sm font-bold">PubChem Database</div>
                      </div>
                   </div>
                </div>
@@ -317,13 +325,15 @@ const HomeView: React.FC<HomeViewProps> = ({ session, isGuest, onNavigate }) => 
                            <span className="text-blue-400 shrink-0">$</span>
                            <span className="text-slate-300">agent --verify "Phase III Oncology Pipeline"</span>
                         </div>
-                        <div className="text-slate-500 italic">Connecting to ClinicalTrials.gov...</div>
+                        <div className="text-slate-500 italic">Connecting to ClinicalTrials.gov, PubMed, and Google Patents...</div>
                         <div className="p-3 bg-white/5 rounded-lg border border-white/5 text-slate-300 leading-relaxed">
-                           "Verification successful. Cross-referenced 14 candidates with NCT identifiers. Academic citations confirmed via PubMed API."
+                           "Verification successful. Cross-referenced 14 candidates with NCT identifiers. Academic citations confirmed via PubMed API. Patent priority dates validated."
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[9px] font-bold border border-blue-500/30">AACT-SYNC</span>
                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[9px] font-bold border border-emerald-500/30">PUBMED-GND</span>
+                           <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[9px] font-bold border border-amber-500/30">PATENT-API</span>
+                           <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-[9px] font-bold border border-purple-500/30">CHEM-SYNC</span>
                         </div>
                      </div>
                   </div>

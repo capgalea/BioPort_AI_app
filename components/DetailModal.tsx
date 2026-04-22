@@ -586,13 +586,11 @@ const DetailModal: React.FC<DetailModalProps> = ({ company, onClose, onResearche
             </div>
 
             {/* Added Patent Section */}
-            {window.self !== window.top && (
               <div className="pt-12 border-t border-slate-100">
                  <Suspense fallback={<div className="h-40 flex items-center justify-center bg-slate-50 rounded-3xl text-slate-400"><Loader2 className="animate-spin mr-2" /> Loading IP node...</div>}>
                     <PatentSection companyName={company.name} onPatentSearchClick={onPatentSearchClick || (() => {})} />
                  </Suspense>
               </div>
-            )}
 
             {/* Added News Section at the bottom of the modal as per screenshot arrow */}
             <div className="pt-12 border-t border-slate-100">

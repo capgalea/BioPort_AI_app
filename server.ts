@@ -586,9 +586,9 @@ app.post("/api/patents/search", async (req, res) => {
     const statusCode = error.response?.status;
     logDebug(`Patent search error (Status: ${statusCode}):`, errorData);
     
-    if (statusCode === 401) {
+    if (statusCode === 401 || statusCode === 403) {
       return res.status(401).json({
-        error: "IP Australia API Authentication Failed. Please ensure your API credentials are correct and that your app is subscribed to the 'Australian Patent Search API' in the IP Australia Developer Portal.",
+        error: "IP Australia API Authentication/Authorization Failed. Please ensure your API credentials are correct and that your app is subscribed to the 'Australian Patent Search API' in the IP Australia Developer Portal.",
         details: errorData
       });
     }

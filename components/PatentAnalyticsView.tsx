@@ -91,7 +91,10 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('bioport_patent_search_query') || '');
-  const [source, setSource] = useState<'ipAustralia' | 'googlePatents' | 'bigquery'>(() => (localStorage.getItem('bioport_patent_source') as any) || 'bigquery');
+  const [source, setSource] = useState<'ipAustralia' | 'bigquery'>(() => {
+    const saved = localStorage.getItem('bioport_patent_source');
+    return (saved === 'ipAustralia' || saved === 'bigquery') ? saved : 'bigquery';
+  });
   const [inventorName, setInventorName] = useState(() => localStorage.getItem('bioport_patent_inventor_name') || '');
   const [applicant, setApplicant] = useState(() => localStorage.getItem('bioport_patent_applicant') || initialCompany || '');
   const [startYear, setStartYear] = useState(() => Number(localStorage.getItem('bioport_patent_start_year')) || 2010);
@@ -568,7 +571,6 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
               >
                 <option value="ipAustralia">IP Australia</option>
-                <option value="googlePatents">Google Patents (AI)</option>
                 <option value="bigquery">Google BigQuery</option>
               </select>
             </div>
@@ -609,63 +611,65 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             />
           </div>
 
-          <div className="lg:col-span-1 relative" ref={countryDropdownRef}>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Countries</label>
-            <div className="relative">
-              <button 
-                onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
-                className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-left flex justify-between items-center"
-              >
-                <span className="truncate">
-                  {selectedCountries.length > 0 
-                    ? selectedCountries.length === 1
-                      ? `${selectedCountries[0]} - ${getCountryName(selectedCountries[0])}`
-                      : `${selectedCountries.length} Selected (${selectedCountries.join(', ')})`
-                    : 'All Countries'}
-                </span>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              </button>
-              
-              {isCountryDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-slate-100">
-                    <input 
-                      type="text" 
-                      placeholder="Search countries..." 
-                      value={countrySearch}
-                      onChange={(e) => setCountrySearch(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
-                    />
+          {source !== 'ipAustralia' && (
+            <div className="lg:col-span-1 relative" ref={countryDropdownRef}>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Countries</label>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 text-left flex justify-between items-center"
+                >
+                  <span className="truncate">
+                    {selectedCountries.length > 0 
+                      ? selectedCountries.length === 1
+                        ? `${selectedCountries[0]} - ${getCountryName(selectedCountries[0])}`
+                        : `${selectedCountries.length} Selected (${selectedCountries.join(', ')})`
+                      : 'All Countries'}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                </button>
+                
+                {isCountryDropdownOpen && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-hidden flex flex-col">
+                    <div className="p-2 border-b border-slate-100">
+                      <input 
+                        type="text" 
+                        placeholder="Search countries..." 
+                        value={countrySearch}
+                        onChange={(e) => setCountrySearch(e.target.value)}
+                        className="w-full px-3 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
+                    <div className="overflow-y-auto p-2 flex-1">
+                      {Object.entries(countryNames)
+                        .filter(([code, name]) => 
+                          name.toLowerCase().includes(countrySearch.toLowerCase()) || 
+                          code.toLowerCase().includes(countrySearch.toLowerCase())
+                        )
+                        .map(([code, name]) => (
+                          <label key={code} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer text-sm">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedCountries.includes(code)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCountries(prev => [...prev, code]);
+                                } else {
+                                  setSelectedCountries(prev => prev.filter(c => c !== code));
+                                }
+                              }}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span className="font-mono text-slate-400 text-xs">{code}</span>
+                            <span className="truncate">{name}</span>
+                          </label>
+                        ))}
+                    </div>
                   </div>
-                  <div className="overflow-y-auto p-2 flex-1">
-                    {Object.entries(countryNames)
-                      .filter(([code, name]) => 
-                        name.toLowerCase().includes(countrySearch.toLowerCase()) || 
-                        code.toLowerCase().includes(countrySearch.toLowerCase())
-                      )
-                      .map(([code, name]) => (
-                        <label key={code} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer text-sm">
-                          <input 
-                            type="checkbox" 
-                            checked={selectedCountries.includes(code)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedCountries(prev => [...prev, code]);
-                              } else {
-                                setSelectedCountries(prev => prev.filter(c => c !== code));
-                              }
-                            }}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          <span className="font-mono text-slate-400 text-xs">{code}</span>
-                          <span className="truncate">{name}</span>
-                        </label>
-                      ))}
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="lg:col-span-1">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Grant Status</label>
