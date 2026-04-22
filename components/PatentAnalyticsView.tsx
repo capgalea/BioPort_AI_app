@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { format, isWithinInterval, parseISO } from 'date-fns';
+import posthog from 'posthog-js';
 import { 
   PieChart as RePieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
@@ -238,6 +239,14 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
     if (dryRun) setIsDryRunning(true);
 
     try {
+      posthog.capture('patent_search_performed', {
+        query: q,
+        source: src,
+        inventor: invName,
+        applicant: app,
+        country_count: countries?.length || 0,
+        limit_requested: downloadLimit
+      });
       const result = await patentService.getPatentsWithStats(q, {
         inventor: invName || undefined,
         applicant: app || undefined,

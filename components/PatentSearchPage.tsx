@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import axios from 'axios';
+import posthog from 'posthog-js';
 
 const DATABASES = {
   ip_australia: 'IP Australia (AusPat)',
@@ -74,7 +75,7 @@ const PatentSearchPage: React.FC = () => {
           };
         });
 
-        setResults({
+        const newResults = {
           analysis: `Found ${response.data.total_hits || patents.length} results from USPTO (via Google Patents).`,
           patents: patents,
           stats: {
@@ -82,10 +83,18 @@ const PatentSearchPage: React.FC = () => {
             databases_queried: 1,
             duplicates_removed: 0
           }
+        };
+
+        setResults(newResults);
+
+        posthog.capture('patent_search_performed', {
+          query_length: query.length,
+          result_count: patents.length,
+          source: selectedDbs[0]
         });
       } else {
         // Mock response for other databases until implemented
-        setResults({
+        const mockResults = {
           analysis: `Search for other databases is coming soon.`,
           patents: [],
           stats: {
@@ -93,6 +102,13 @@ const PatentSearchPage: React.FC = () => {
             databases_queried: selectedDbs.length,
             duplicates_removed: 0
           }
+        };
+        setResults(mockResults);
+        
+        posthog.capture('patent_search_performed', {
+           query_length: query.length,
+           result_count: 0,
+           source: selectedDbs[0]
         });
       }
     } catch (err: any) {

@@ -399,6 +399,7 @@ function App() {
         api_host: phHost,
         autocapture: false, // Disable autocapture to prevent noise in dev
         capture_pageview: false, // We handle it manually
+        capture_web_vitals: true,
         session_recording: {}
       });
     } catch (e) {
