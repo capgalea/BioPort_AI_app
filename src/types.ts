@@ -27,4 +27,10 @@ export interface Patent {
   claim?: string;
   applicants?: string[];
   familyJurisdictions?: string[];
+  // Enhanced Insights
+  technicalFields?: string[];
+  keyClaimsSummary?: string;
+  noveltyOverPriorArt?: string;
+  pctStatusInfo?: string;
+  designatedStates?: string[];
 }

@@ -3,7 +3,7 @@ import { format, isWithinInterval, parseISO } from 'date-fns';
 import posthog from 'posthog-js';
 import { 
   PieChart as RePieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
+  BarChart as ReBarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
 } from 'recharts';
 import { 
   Search, Download, Filter, ChevronDown, ChevronUp, CheckSquare, Square, 
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Patent } from '../types';
 import { patentService, PatentResults } from '../services/patentService';
-import { generatePatentComparisonSummary } from '../services/geminiService';
+import { generatePatentComparisonSummary, enrichPatentDetails, runAssigneeAnalysisPipeline } from '../services/geminiService';
 import { GripVertical } from 'lucide-react';
 import { getCountryName, countryNames } from '../src/constants/countryCodes';
 
@@ -146,14 +146,36 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [displayLimit, setDisplayLimit] = useState(10);
   const [downloadLimit, setDownloadLimit] = useState<number | 'ALL'>(25);
   const [previewPatent, setPreviewPatent] = useState<Patent | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [comparisonPopup, setComparisonPopup] = useState<Patent[] | null>(null);
   const [comparisonModalSize, setComparisonModalSize] = useState({ width: 1000, height: 600 });
+  const [compVisibleRows, setCompVisibleRows] = useState<string[]>(INITIAL_COLUMNS.map(c => c.id));
+  const [compColWidths, setCompColWidths] = useState<Record<string, number>>({ attribute: 200 });
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [resizeOffset, setResizeOffset] = useState({ x: 0, y: 0 });
   const [aiResponsePopup, setAiResponsePopup] = useState<{ summary: string, references: { title: string, url: string }[] } | null>(null);
   const [aiResponsePopupPosition, setAiResponsePopupPosition] = useState({ x: 0, y: 0 });
   const [fullTextPopup, setFullTextPopup] = useState<{ content: string, title: string } | null>(null);
+  const [assigneeAnalysisResult, setAssigneeAnalysisResult] = useState<any>(null);
+  const [isAssigneeAnalysisLoading, setIsAssigneeAnalysisLoading] = useState(false);
+  const [showAssigneeModal, setShowAssigneeModal] = useState(false);
+  const [assigneeModalSize, setAssigneeModalSize] = useState({ width: 900, height: 700 });
+  const [preMaximizedAssigneeSize, setPreMaximizedAssigneeSize] = useState({ width: 900, height: 700 });
+  const [isAssigneeMaximized, setIsAssigneeMaximized] = useState(false);
+  const [isAssigneeResizing, setIsAssigneeResizing] = useState(false);
   const [bqStats, setBqStats] = useState<any>(null);
+
+  const toggleAssigneeMaximize = () => {
+    if (isAssigneeMaximized) {
+      setAssigneeModalSize(preMaximizedAssigneeSize);
+      setIsAssigneeMaximized(false);
+    } else {
+      setPreMaximizedAssigneeSize(assigneeModalSize);
+      setAssigneeModalSize({ width: window.innerWidth * 0.95, height: window.innerHeight * 0.95 });
+      setIsAssigneeMaximized(true);
+    }
+  };
   const [isDryRunning, setIsDryRunning] = useState(false);
   const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -186,6 +208,29 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   };
 
   useEffect(() => {
+    const handleColMouseMove = (e: MouseEvent) => {
+      if (resizingCol) {
+        setCompColWidths(prev => ({
+          ...prev,
+          [resizingCol]: Math.max(50, e.clientX - resizeOffset.x)
+        }));
+      }
+    };
+    const handleColMouseUp = () => {
+      setResizingCol(null);
+    };
+
+    if (resizingCol) {
+      window.addEventListener('mousemove', handleColMouseMove);
+      window.addEventListener('mouseup', handleColMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleColMouseMove);
+      window.removeEventListener('mouseup', handleColMouseUp);
+    };
+  }, [resizingCol, resizeOffset]);
+
+  useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         if (draggingModal === 'preview') {
@@ -204,6 +249,11 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
           width: Math.max(300, e.clientX - resizeOffset.x),
           height: Math.max(200, e.clientY - resizeOffset.y)
         });
+      } else if (isAssigneeResizing) {
+        setAssigneeModalSize({
+          width: Math.max(400, e.clientX - resizeOffset.x),
+          height: Math.max(300, e.clientY - resizeOffset.y)
+        });
       }
     };
 
@@ -211,9 +261,10 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
       setIsDragging(false);
       setDraggingModal(null);
       setIsResizing(false);
+      setIsAssigneeResizing(false);
     };
 
-    if (isDragging || isResizing) {
+    if (isDragging || isResizing || isAssigneeResizing) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     }
@@ -287,18 +338,32 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
   const handlePreviewPatent = async (patent: Patent) => {
     setPreviewPatent(patent);
-    if (patent.family) {
-      try {
-        const response = await fetch('/api/bigquery/family-jurisdictions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ familyId: patent.family })
-        });
-        const data = await response.json();
-        setPreviewPatent(prev => prev ? { ...prev, familyJurisdictions: data.jurisdictions } : null);
-      } catch (error) {
-        console.error("Failed to fetch family jurisdictions:", error);
-      }
+    setPreviewLoading(true);
+
+    try {
+      const familyPromise = patent.family ? fetch('/api/bigquery/family-jurisdictions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyId: patent.family })
+      }).then(res => res.json()).catch(e => {
+        console.error("Failed to fetch family jurisdictions:", e);
+        return null;
+      }) : Promise.resolve(null);
+
+      const insightsPromise = enrichPatentDetails(patent).catch(e => {
+        console.error("Failed to enrich patent details:", e);
+        return {};
+      });
+
+      const [familyData, insightsData] = await Promise.all([familyPromise, insightsPromise]);
+
+      setPreviewPatent(prev => prev ? { 
+        ...prev, 
+        ...(familyData ? { familyJurisdictions: familyData.jurisdictions } : {}),
+        ...insightsData
+      } : null);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -312,6 +377,21 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
   // Drag and drop removed for React 19 compatibility
   const onDragEnd = () => {};
+
+  const generateAssigneeAnalysis = async () => {
+    setIsAssigneeAnalysisLoading(true);
+    setShowAssigneeModal(true);
+    try {
+      const topic = searchQuery || applicant || inventorName || "Selected Patents";
+      const result = await runAssigneeAnalysisPipeline(processedPatents, topic);
+      setAssigneeAnalysisResult(result);
+    } catch (e: any) {
+      console.error(e);
+      setAssigneeAnalysisResult({ summary: "Analysis failed due to error: " + e.message, assignees: [] });
+    } finally {
+      setIsAssigneeAnalysisLoading(false);
+    }
+  };
 
   const toggleColumn = (colId: string) => {
     setVisibleColumns(prev => 
@@ -818,6 +898,19 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
       {!loading && !error && patents.length > 0 && (
         <>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-black text-slate-900">Analysis Results</h3>
+            <button 
+              onClick={() => {
+                // Implement click handler
+                generateAssigneeAnalysis();
+              }}
+              className="px-6 py-2 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 flex items-center gap-2 shadow-sm transition-colors"
+            >
+               Who's filing in this space?
+            </button>
+          </div>
+
           {/* KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
@@ -868,13 +961,13 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">Filing Trend by Year</h3>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={yearData}>
+                  <ReBarChart data={yearData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                     <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
                     <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                  </ReBarChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -1327,6 +1420,77 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                       </p>
                     </div>
                   )}
+
+                  {/* AI Enhanced Insights Block */}
+                  <div className="mt-8 border-t border-slate-100 pt-8 relative min-h-[100px]">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="p-1.5 bg-purple-100 rounded-lg">
+                        <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-black text-slate-900">AI Deep Analysis</h3>
+                    </div>
+
+                    {previewLoading ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm rounded-xl">
+                        <div className="w-8 h-8 md:w-10 md:h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                        <p className="mt-3 text-sm font-bold text-slate-500 animate-pulse">Extracting insights from the actual patent...</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {previewPatent.technicalFields && previewPatent.technicalFields.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Technical Fields</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {previewPatent.technicalFields.map((field, idx) => (
+                                <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">{field}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {previewPatent.keyClaimsSummary && (
+                          <div>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Key Claims Summary</h4>
+                            <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              {previewPatent.keyClaimsSummary}
+                            </p>
+                          </div>
+                        )}
+
+                        {previewPatent.noveltyOverPriorArt && (
+                          <div>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Novelty Over Prior Art</h4>
+                            <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              {previewPatent.noveltyOverPriorArt}
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {previewPatent.pctStatusInfo && (
+                            <div>
+                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">PCT Status</h4>
+                              <p className="text-sm font-bold text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                {previewPatent.pctStatusInfo}
+                              </p>
+                            </div>
+                          )}
+
+                          {previewPatent.designatedStates && previewPatent.designatedStates.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Designated States</h4>
+                              <p className="text-sm font-bold text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                {previewPatent.designatedStates.join(', ')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
                 
                 <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
@@ -1414,22 +1578,61 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                       {isAiLoading ? 'Generating...' : 'Generate'}
                     </button>
                   </div>
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse table-fixed">
                     <thead>
                       <tr>
-                        <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase">Attribute</th>
+                        <th 
+                          style={{ width: compColWidths['attribute'] || 200 }} 
+                          className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase relative align-top"
+                        >
+                          Attribute
+                          <div className="mt-2 space-y-1 max-h-32 overflow-y-auto font-medium normal-case">
+                            {INITIAL_COLUMNS.map(col => (
+                              <label key={col.id} className="flex items-center gap-1.5 text-[10px] text-slate-600 cursor-pointer hover:bg-slate-50 p-0.5 rounded">
+                                <input 
+                                  type="checkbox" 
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                  checked={compVisibleRows.includes(col.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) setCompVisibleRows([...compVisibleRows, col.id]);
+                                    else setCompVisibleRows(compVisibleRows.filter(id => id !== col.id));
+                                  }}
+                                />
+                                {col.label}
+                              </label>
+                            ))}
+                          </div>
+                          <div 
+                            onMouseDown={e => { setResizingCol('attribute'); setResizeOffset({ x: e.clientX - (compColWidths['attribute'] || 200), y: 0 }); }} 
+                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 hit-area z-10" 
+                          />
+                        </th>
                         {comparisonPopup.map(p => (
-                          <th key={p.applicationNumber} className="p-3 border-b border-slate-200 text-xs font-black text-slate-900 uppercase">{p.applicationNumber}</th>
+                          <th 
+                            key={p.applicationNumber} 
+                            style={{ width: compColWidths[p.applicationNumber] || 250 }} 
+                            className="p-3 border-b border-slate-200 text-xs font-black text-slate-900 uppercase relative align-top"
+                          >
+                            <div className="truncate" title={p.applicationNumber}>{p.applicationNumber}</div>
+                            <div 
+                              onMouseDown={e => { setResizingCol(p.applicationNumber); setResizeOffset({ x: e.clientX - (compColWidths[p.applicationNumber] || 250), y: 0 }); }} 
+                              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 hit-area z-10" 
+                            />
+                          </th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {tableColumns.map(col => (
+                      {INITIAL_COLUMNS.filter(c => compVisibleRows.includes(c.id)).map(col => (
                         <tr key={col.id} className="hover:bg-slate-50">
-                          <td className="p-3 border-b border-slate-100 text-sm font-bold text-slate-700">{col.label}</td>
+                          <td className="p-3 border-b border-slate-100 text-sm font-bold text-slate-700 align-top">
+                            {col.label}
+                          </td>
                           {comparisonPopup.map(p => (
-                            <td key={p.applicationNumber} className="p-3 border-b border-slate-100 text-sm text-slate-600">
-                              {String(p[col.id as keyof Patent] || 'N/A')}
+                            <td key={p.applicationNumber} className="p-3 border-b border-slate-100 text-sm text-slate-600 align-top break-words">
+                              <div className="line-clamp-6" title={String(p[col.id as keyof Patent] || 'N/A')}>
+                                {String(p[col.id as keyof Patent] || 'N/A')}
+                              </div>
                             </td>
                           ))}
                         </tr>
@@ -1439,7 +1642,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                 </div>
                 {/* Resize Handle */}
                 <div 
-                  className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize bg-slate-200 rounded-tl-lg flex items-center justify-center"
+                  className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize bg-slate-200 rounded-tl-lg flex items-center justify-center hover:bg-slate-300 transition-colors"
                   onMouseDown={(e) => {
                     setIsResizing(true);
                     setResizeOffset({
@@ -1448,7 +1651,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                     });
                   }}
                 >
-                  <div className="w-2 h-2 border-r-2 border-b-2 border-slate-400"></div>
+                  <div className="w-2.5 h-2.5 border-r-2 border-b-2 border-slate-500"></div>
                 </div>
               </div>
             </div>
@@ -1493,6 +1696,144 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
               </div>
             </div>
           )}
+          {/* Assignee Analysis Modal */}
+          {showAssigneeModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+              <div 
+                className="bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
+                style={{
+                  width: isAssigneeMaximized ? '95vw' : assigneeModalSize.width,
+                  height: isAssigneeMaximized ? '95vh' : assigneeModalSize.height,
+                  maxHeight: isAssigneeMaximized ? '95vh' : '90vh'
+                }}
+              >
+                <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50 shrink-0">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900 leading-tight">IP Landscape Analysis</h2>
+                    <p className="text-sm font-medium text-slate-500 mt-1">Assignee Filing Activity</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={toggleAssigneeMaximize}
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                    >
+                      <Maximize2 className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => setShowAssigneeModal(false)}
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="p-6 overflow-y-auto flex-1 bg-slate-50">
+                  {isAssigneeAnalysisLoading ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                      <Loader2 className="w-10 h-10 animate-spin mb-4 text-purple-600" />
+                      <p className="text-sm font-black uppercase tracking-widest text-purple-600 animate-pulse">Running IP Intelligence Agents...</p>
+                      <p className="text-xs font-medium text-slate-500 mt-2">Scoring assignees, evaluating jurisdictions, and synthesizing summary.</p>
+                    </div>
+                  ) : assigneeAnalysisResult ? (
+                    <div className="space-y-6">
+                      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h3 className="text-lg font-black text-slate-900 mb-2">Business Relevance & Synthesis</h3>
+                        <p className="text-sm text-slate-700 leading-relaxed">{assigneeAnalysisResult.summary}</p>
+                      </div>
+
+                      {assigneeAnalysisResult.assignees && assigneeAnalysisResult.assignees.length > 0 && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                             <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                               <h3 className="text-sm font-black text-slate-900 uppercase">Top Assignees</h3>
+                             </div>
+                             <div className="overflow-x-auto">
+                               <table className="w-full text-left border-collapse min-w-[600px]">
+                                 <thead>
+                                   <tr>
+                                     <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase">Assignee</th>
+                                     <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase text-center">Score</th>
+                                     <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase text-center">Patents</th>
+                                     <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase">Recency</th>
+                                     <th className="p-3 border-b border-slate-200 text-xs font-black text-slate-400 uppercase">Jurisdictions</th>
+                                   </tr>
+                                 </thead>
+                                 <tbody>
+                                   {assigneeAnalysisResult.assignees.sort((a: any, b: any) => b.score - a.score).map((assignee: any, idx: number) => (
+                                     <tr 
+                                       key={idx} 
+                                       className="hover:bg-slate-100 cursor-pointer transition-colors"
+                                       onClick={() => {
+                                         // Filter the main patent table by exactly this assignee name
+                                         const assigneeFilterKey = 'assignees'; // Key used in the table filtering logic
+                                         
+                                         // Update draft filters
+                                         setDraftFilters(prev => ({ 
+                                           ...prev, 
+                                           [assigneeFilterKey]: [assignee.name] 
+                                         }));
+                                         
+                                         // Automatically apply the filter so the table updates immediately
+                                         setFilters(prev => ({ 
+                                           ...prev, 
+                                           [assigneeFilterKey]: [assignee.name] 
+                                         }));
+                                         
+                                         // Close the modal
+                                         setShowAssigneeModal(false);
+                                       }}
+                                     >
+                                       <td className="p-3 border-b border-slate-100 text-sm font-bold text-slate-700">{assignee.name}</td>
+                                       <td className="p-3 border-b border-slate-100 text-sm text-center">
+                                         <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full font-black">{assignee.score}</span>
+                                       </td>
+                                       <td className="p-3 border-b border-slate-100 text-sm font-semibold text-slate-600 text-center">{assignee.patentCount}</td>
+                                       <td className="p-3 border-b border-slate-100 text-xs text-slate-600">{assignee.recentActivity}</td>
+                                       <td className="p-3 border-b border-slate-100 text-xs text-slate-600">{assignee.jurisdictionSpread}</td>
+                                     </tr>
+                                   ))}
+                                 </tbody>
+                               </table>
+                             </div>
+                          </div>
+                          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex flex-col items-center justify-center min-h-[300px]">
+                             <h3 className="text-sm font-black text-slate-900 uppercase mb-4 w-full text-left">Filing Activity Score</h3>
+                             <ResponsiveContainer width="100%" height="100%" minHeight={250}>
+                               <ReBarChart data={assigneeAnalysisResult.assignees.sort((a: any, b: any) => b.score - a.score).slice(0, 5)} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
+                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
+                                 <XAxis type="number" hide />
+                                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 10, fontWeight: 700 }} width={80} />
+                                 <RechartsTooltip cursor={{ fill: '#F1F5F9' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                 <Bar dataKey="score" fill="#9333ea" radius={[0, 4, 4, 0]} barSize={24} />
+                               </ReBarChart>
+                             </ResponsiveContainer>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                
+                {/* Resize Handle */}
+                {!isAssigneeMaximized && (
+                  <div 
+                    className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize bg-slate-200 rounded-tl-lg flex items-center justify-center hover:bg-slate-300 transition-colors z-50"
+                    onMouseDown={(e) => {
+                      setIsAssigneeResizing(true);
+                      setResizeOffset({
+                        x: e.clientX - assigneeModalSize.width,
+                        y: e.clientY - assigneeModalSize.height
+                      });
+                    }}
+                  >
+                    <div className="w-2.5 h-2.5 border-r-2 border-b-2 border-slate-500"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </>
       )}
 

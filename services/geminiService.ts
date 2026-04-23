@@ -394,7 +394,174 @@ export const runPatentAIAgent = async (
 };
 
 
+export const enrichPatentDetails = async (patent: Patent): Promise<Partial<Patent>> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) return {};
+
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  
+  const prompt = `
+  Analyze the following patent and use Google Search to find additional specific information about it.
+  
+  Patent Identifier: ${patent.applicationNumber || patent.id}
+  Title: ${patent.title}
+  
+  INSTRUCTIONS:
+  1. Use the Google Search tool to look up this specific patent (using its application number/ID or title).
+  2. Extract or infer the following deep insights:
+     - Technical Fields: The main technological areas this patent covers.
+     - Key Claims Summary: A brief summary of the most important claims.
+     - Novelty Over Prior Art: Why this invention is novel compared to existing solutions.
+     - PCT Status Info: Current status of the PCT application (if applicable, else indicate "Not a PCT application" or "Unknown").
+     - Designated States: A list of countries or states designated for protection (if applicable).
+  
+  Return a JSON object matching this schema exactly.
+  `;
+
+  try {
+    const response: GenerateContentResponse = await withExponentialBackoff(() => 
+      generateContentWithTracking(ai, {
+        model: "gemini-3.1-pro-preview", 
+        contents: prompt,
+        config: { 
+          tools: [{ googleSearch: {} }], 
+          temperature: 0.1,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              technicalFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+              keyClaimsSummary: { type: Type.STRING },
+              noveltyOverPriorArt: { type: Type.STRING },
+              pctStatusInfo: { type: Type.STRING },
+              designatedStates: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["technicalFields", "keyClaimsSummary", "noveltyOverPriorArt", "pctStatusInfo", "designatedStates"]
+          }
+        },
+      })
+    );
+    const text = response.text || "";
+    const data = extractJson(text);
+    return data || {};
+  } catch (error: any) {
+    console.error("Failed to enrich patent details:", error);
+    return {};
+  }
+};
+
 // --- API INTEGRATION ---
+
+export const runAssigneeAnalysisPipeline = async (
+  patents: Patent[],
+  topic: string
+): Promise<{
+  summary: string;
+  assignees: { name: string; score: number; patentCount: number; recentActivity: string; jurisdictionSpread: string }[];
+}> => {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  if (!apiKey) throw new Error("API Key required.");
+
+  // Pre-aggregate data to reduce token load and parsing time for the LLM
+  type AssigneeStats = { name: string; count: number; earliestDate: string; recentDate: string; jurisdictions: Set<string> };
+  const assigneeMap = new Map<string, AssigneeStats>();
+
+  patents.forEach(p => {
+    const assignees = p.assignees && p.assignees.length > 0 ? p.assignees : p.applicants || ["Unknown"];
+    let dateStr = p.dateFiled || p.earliestPriorityDate;
+    if (!dateStr || dateStr.trim() === "0") {
+      dateStr = "1970-01-01";
+    }
+    const date = new Date(dateStr);
+    
+    // Fallback in case of invalid date parsing
+    const validDateStr = isNaN(date.getTime()) ? "1970-01-01" : dateStr;
+    const validDate = isNaN(date.getTime()) ? new Date("1970-01-01") : date;
+
+    const jurisdictions = p.familyJurisdictions && p.familyJurisdictions.length > 0 ? p.familyJurisdictions : [p.country || "Unknown"];
+
+    assignees.forEach(assignee => {
+      if (!assignee) return;
+      const normalizedName = assignee.toUpperCase().trim();
+      if (!assigneeMap.has(normalizedName)) {
+        assigneeMap.set(normalizedName, { name: assignee, count: 0, earliestDate: "2099-01-01", recentDate: "1970-01-01", jurisdictions: new Set() });
+      }
+      const stats = assigneeMap.get(normalizedName)!;
+      stats.count++;
+      
+      const statRecent = new Date(stats.recentDate);
+      const statEarliest = new Date(stats.earliestDate);
+
+      if (validDate > statRecent) {
+        stats.recentDate = validDateStr.split('T')[0];
+      }
+      if (validDate < statEarliest && validDateStr !== "1970-01-01") {
+        stats.earliestDate = validDateStr.split('T')[0];
+      }
+      
+      jurisdictions.forEach(j => {
+        if (j && j.trim() !== "") stats.jurisdictions.add(j);
+      });
+    });
+  });
+
+  const aggregatedData = Array.from(assigneeMap.values()).map(stat => ({
+    name: stat.name,
+    patentCount: stat.count,
+    activeYears: `${stat.earliestDate === "2099-01-01" ? "Unknown" : stat.earliestDate.substring(0, 4)} - ${stat.recentDate === "1970-01-01" ? "Unknown" : stat.recentDate.substring(0, 4)}`,
+    lastFilingExact: stat.recentDate === "1970-01-01" ? "Unknown" : stat.recentDate,
+    jurisdictions: Array.from(stat.jurisdictions)
+  })).sort((a, b) => b.patentCount - a.patentCount).slice(0, 15); // Top 15 to keep prompt fast
+
+  const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
+  
+  const prompt = `
+  You are an expert IP analyst. We have pre-aggregated patent data around the target topic: "${topic}".
+  
+  Here are the top active assignees (up to 15):
+  ${JSON.stringify(aggregatedData)}
+
+  INSTRUCTIONS:
+  1. Score each included assignee's IP activity from 0-100 based on their 'patentCount', their 'activeYears' string (sustained activity = higher), and 'lastFilingExact' (recent = higher), and the spread of their 'jurisdictions'.
+  2. Write a brief "recentActivity" string summarizing their filing timeline (e.g. "2015-2023" or "Active since 2018").
+  3. Write a brief "jurisdictionSpread" string summarizing their global reach (e.g. "US, EP, WO" or "Global").
+  4. Create a concise "summary" evaluating the overall competitive IP landscape for this topic and its business relevance.
+  
+  Return a JSON object containing carefully mapped "assignees" (retaining the specific name and count) and the "summary".
+  `;
+
+  const response: GenerateContentResponse = await generateContentWithTracking(ai, {
+    model: "gemini-3.1-flash-lite-preview",
+    contents: prompt,
+    config: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          assignees: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                score: { type: Type.NUMBER },
+                patentCount: { type: Type.NUMBER },
+                recentActivity: { type: Type.STRING },
+                jurisdictionSpread: { type: Type.STRING }
+              },
+              required: ["name", "score", "patentCount", "recentActivity", "jurisdictionSpread"]
+            }
+          }
+        },
+        required: ["summary", "assignees"]
+      }
+    }
+  });
+
+  return extractJson(response.text || "{}") || { summary: "Failed to generate analysis.", assignees: [] };
+};
 
 export const fetchAllClinicalTrials = async (companyName: string): Promise<PipelineDrug[]> => {
   const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;

@@ -243,7 +243,8 @@ class BooleanParser {
       }
       
       let word = t;
-      if (word.startsWith('"') && word.endsWith('"')) {
+      // If it's explicitly quoted by user, remove quotes so we can use LIKE
+      if (word.startsWith('"') && word.endsWith('"') && word.length >= 2) {
         word = word.substring(1, word.length - 1).replace(/\\"/g, '"');
       }
       val += (val ? ' ' : '') + word;
@@ -382,10 +383,10 @@ app.post("/api/bigquery/search", async (req, res) => {
         const querySql = compileAST(ast, 'q', params, (term, paramName, p) => {
           paramCounter++;
           const uniqueParamName = `${paramName}_${paramCounter}`;
-          p[uniqueParamName] = term;
+          p[uniqueParamName] = `%${term.toLowerCase()}%`;
           return `(
-            SEARCH(p.title, @${uniqueParamName}) OR
-            SEARCH(p.abstract, @${uniqueParamName})
+            LOWER(p.title) LIKE @${uniqueParamName} OR
+            LOWER(p.abstract) LIKE @${uniqueParamName}
           )`;
         });
         if (querySql !== '1=1') {
