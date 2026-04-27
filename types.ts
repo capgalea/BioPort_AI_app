@@ -249,6 +249,13 @@ export interface Patent {
   pct102Date?: string;
   publishedFiledDate?: string;
   country?: string;
+  technicalFields?: string[];
+  keyClaimsSummary?: string;
+  noveltyOverPriorArt?: string;
+  pctStatusInfo?: string;
+  designatedStates?: string[];
+  id?: string;
+  assignees?: string[];
 }
 
-export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'patentAIAgent' | 'prospectGenerator';
+export type ViewMode = 'home' | 'overview' | 'discovery' | 'results' | 'analytics' | 'about' | 'aboutUs' | 'agent' | 'architecture' | 'employment' | 'login' | 'systemInfo' | 'howToNavigate' | 'changelog' | 'pamphlet' | 'drugSearch' | 'intelligence' | 'patents' | 'patentAnalytics' | 'patentSearch' | 'patentAIAgent' | 'prospectGenerator';

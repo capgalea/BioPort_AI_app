@@ -14,6 +14,7 @@ import { patentService, PatentResults } from '../services/patentService';
 import { generatePatentComparisonSummary, enrichPatentDetails, runAssigneeAnalysisPipeline } from '../services/geminiService';
 import { GripVertical } from 'lucide-react';
 import { getCountryName, countryNames } from '../src/constants/countryCodes';
+import USPTOPatentDetailModal from './USPTOPatentDetailModal';
 
 const INITIAL_COLUMNS = [
   { id: 'applicationNumber', label: 'Application Number' },
@@ -83,17 +84,27 @@ const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVi
   );
 };
 
-export default function PatentAnalyticsView({ initialCompany }: { initialCompany?: string }) {
+export default function PatentAnalyticsView({ initialCompany, patents: passedPatents }: { initialCompany?: string, patents?: Patent[] }) {
   const [patents, setPatents] = useState<Patent[]>(() => {
+    if (passedPatents && passedPatents.length > 0) return passedPatents;
     const saved = localStorage.getItem('bioport_patent_analytics_results');
     return saved ? JSON.parse(saved) : [];
   });
+
+  useEffect(() => {
+    if (passedPatents && passedPatents.length > 0) {
+      setPatents(passedPatents);
+    }
+  }, [passedPatents]);
+  
+  const displayPatents = patents;
+  const tableData = displayPatents;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState(() => localStorage.getItem('bioport_patent_search_query') || '');
-  const [source, setSource] = useState<'ipAustralia' | 'bigquery'>(() => {
+  const [source, setSource] = useState<'ipAustralia' | 'bigquery' | 'uspto'>(() => {
     const saved = localStorage.getItem('bioport_patent_source');
-    return (saved === 'ipAustralia' || saved === 'bigquery') ? saved : 'bigquery';
+    return (saved === 'ipAustralia' || saved === 'bigquery' || saved === 'uspto') ? saved : 'bigquery';
   });
   const [inventorName, setInventorName] = useState(() => localStorage.getItem('bioport_patent_inventor_name') || '');
   const [applicant, setApplicant] = useState(() => localStorage.getItem('bioport_patent_applicant') || initialCompany || '');
@@ -106,6 +117,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [aiQuery, setAiQuery] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [patentTypeFilter, setPatentTypeFilter] = useState<string>('All');
   const [countrySearch, setCountrySearch] = useState('');
   const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
   const countryDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -165,6 +177,8 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
   const [isAssigneeMaximized, setIsAssigneeMaximized] = useState(false);
   const [isAssigneeResizing, setIsAssigneeResizing] = useState(false);
   const [bqStats, setBqStats] = useState<any>(null);
+  const [dataSourceFilter, setDataSourceFilter] = useState<string>('All Sources');
+  const [usptoDetailPatent, setUsptoDetailPatent] = useState<Patent | null>(null);
 
   const toggleAssigneeMaximize = () => {
     if (isAssigneeMaximized) {
@@ -288,6 +302,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
     const src = overrides?.source !== undefined ? overrides.source : source;
     const countries = overrides?.countries !== undefined ? overrides.countries : selectedCountries;
     const status = overrides?.status !== undefined ? overrides.status : statusFilter;
+    const patentType = overrides?.patentType !== undefined ? overrides.patentType : patentTypeFilter;
     const dryRun = overrides?.dryRun || false;
 
     if (dryRun) setIsDryRunning(true);
@@ -307,7 +322,8 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         startDate: `${sYear}-01-01`,
         endDate: `${eYear}-12-31`,
         countries: countries.length > 0 ? countries : undefined,
-        status: status === 'All' ? undefined : status
+        status: status === 'All' ? undefined : status,
+        patentType: patentType === 'All' ? undefined : patentType
       }, downloadLimit === 'ALL' ? 10000 : downloadLimit, src, dryRun);
       
       const patentResults = result as PatentResults;
@@ -470,7 +486,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
   const availableYears = useMemo(() => {
     const years = new Set<string>();
-    patents.forEach(p => {
+    displayPatents.forEach(p => {
       ['dateFiled', 'earliestPriorityDate', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate', 'datePublished'].forEach(colId => {
         const val = (p as any)[colId];
         if (val) {
@@ -479,10 +495,24 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
       });
     });
     return Array.from(years).sort().reverse();
-  }, [patents]);
+  }, [displayPatents]);
 
   const processedPatents = useMemo(() => {
-    let result = [...patents];
+    let result = [...displayPatents];
+
+    if (dataSourceFilter !== 'All Sources') {
+      result = result.filter(p => {
+        const src = (p.source || '').toLowerCase();
+        const f = dataSourceFilter.toLowerCase();
+        const c = String(p.country || p.jurisdiction || p.applicationNumber || p.publicationNumber || p.actualApplicationNumber || '').toLowerCase();
+
+        if (f.includes('uspto')) return src.includes('uspto') || c.startsWith('us');
+        if (f.includes('epo')) return src.includes('epo') || src.includes('ops') || c.startsWith('ep');
+        if (f.includes('auspat') || f.includes('australia')) return src.includes('ip australia') || src.includes('auspat') || c.startsWith('au');
+        if (f.includes('lens')) return src.includes('lens');
+        return true;
+      });
+    }
 
     // Show only selected
     if (showOnlySelected) {
@@ -552,7 +582,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
     }
 
     return result;
-  }, [patents, filters, firstCharFilters, dateFilters, sortConfig, showOnlySelected, selectedRows]);
+  }, [displayPatents, filters, firstCharFilters, dateFilters, sortConfig, showOnlySelected, selectedRows, dataSourceFilter]);
 
   useEffect(() => {
     setDisplayLimit(10);
@@ -564,12 +594,22 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
   // Analytics Data
   const statusData = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const counts: Record<string, { count: number, original_status: string }> = {};
     processedPatents.forEach(p => {
-      const status = p.status || 'Unknown';
-      counts[status] = (counts[status] || 0) + 1;
+      let originalStatus = p.status || 'Unknown';
+      let status = originalStatus;
+      // Truncate overly long status names for the pie chart
+      if (status.length > 35) {
+        status = status.substring(0, 35) + '...';
+      }
+      if (!counts[status]) {
+        counts[status] = { count: 0, original_status: originalStatus };
+      }
+      counts[status].count += 1;
     });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+    return Object.entries(counts)
+      .map(([name, data]) => ({ name, value: data.count, original_status: data.original_status }))
+      .sort((a, b) => b.value - a.value);
   }, [processedPatents]);
 
   const uniqueColumnValues = useMemo(() => {
@@ -605,9 +645,9 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
   const kpis = {
     total: processedPatents.length,
-    granted: processedPatents.filter(p => p.status.toLowerCase().includes('grant')).length,
-    uniqueOwners: new Set(processedPatents.flatMap(p => p.owners)).size,
-    uniqueJurisdictions: new Set(processedPatents.flatMap(p => p.familyJurisdictions)).size
+    granted: processedPatents.filter(p => (p.status || '').toLowerCase().includes('grant')).length,
+    uniqueOwners: new Set(processedPatents.flatMap(p => p.owners || p.applicants || (p as any).assignees || [])).size,
+    uniqueJurisdictions: new Set(processedPatents.flatMap(p => p.familyJurisdictions || p.inventorsCountry || [(p as any).country, (p as any).jurisdiction]).filter(Boolean)).size
   };
 
   return (
@@ -628,11 +668,30 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         </div>
       </div>
 
+      {/* Data Source Toggle */}
+      {tableData.length > 0 && (
+        <div className="mb-6 flex overflow-x-auto gap-2 bg-slate-100 p-2 rounded-2xl w-fit border border-slate-200">
+          {['All Sources', 'USPTO', 'EPO', 'AusPat', 'Lens'].map(src => (
+            <button
+              key={src}
+              onClick={() => setDataSourceFilter(src)}
+              className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
+                dataSourceFilter === src 
+                  ? 'bg-white text-blue-700 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+              }`}
+            >
+              {src}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search & Filter Section */}
       <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm mb-8">
-        <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Retrieve Patent Data</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="lg:col-span-4 flex gap-4">
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Search Query & Filters</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-5 flex gap-4">
             <div className="flex-1">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Search Query (Title & Abstract)</label>
               <input 
@@ -643,7 +702,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
               />
             </div>
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 min-w-[200px]">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data Source</label>
               <select 
                 value={source}
@@ -651,10 +710,11 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                 className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
               >
                 <option value="ipAustralia">IP Australia</option>
-                <option value="bigquery">Google BigQuery</option>
+                <option value="uspto">USPTO</option>
+                <option value="bigquery">Google Patents</option>
               </select>
             </div>
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 min-w-[150px]">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Download Limit</label>
               <select 
                 value={downloadLimit}
@@ -680,7 +740,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             />
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-2">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Applicant / Assignee</label>
             <input 
               type="text" 
@@ -689,6 +749,20 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
               placeholder="e.g., Moderna"
               className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
             />
+          </div>
+
+          <div className="lg:col-span-1">
+            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Patent Type</label>
+            <select 
+              value={patentTypeFilter || 'All'}
+              onChange={(e) => setPatentTypeFilter(e.target.value)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-500"
+            >
+              <option value="All">All Types</option>
+              <option value="Utility">Utility</option>
+              <option value="Design">Design</option>
+              <option value="Plant">Plant</option>
+            </select>
           </div>
 
           {source !== 'ipAustralia' && (
@@ -764,7 +838,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             </select>
           </div>
 
-          <div className="lg:col-span-2 flex gap-4">
+          <div className="lg:col-span-3 flex gap-4">
             <div className="flex-1">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Start Year: {startYear}</label>
               <input 
@@ -789,7 +863,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
             </div>
           </div>
 
-          <div className="lg:col-span-4 flex items-end gap-2 mt-2">
+          <div className="lg:col-span-5 flex items-end gap-2 mt-2">
             <button 
               onClick={() => fetchPatents()}
               className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2"
@@ -896,7 +970,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         </div>
       )}
 
-      {!loading && !error && patents.length > 0 && (
+      {!loading && !error && displayPatents.length > 0 && (
         <>
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-black text-slate-900">Analysis Results</h3>
@@ -933,40 +1007,81 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">Patent Status Distribution</h3>
-              <div className="h-64">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Patent Status Distribution</h3>
+                <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Click to Filter</span>
+              </div>
+              <div className="flex-1 min-h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RePieChart>
                     <Pie
                       data={statusData}
                       cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
+                      cy="45%"
+                      innerRadius={70}
+                      outerRadius={95}
                       paddingAngle={5}
                       dataKey="value"
                     >
                       {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={COLORS[index % COLORS.length]} 
+                          className="cursor-pointer hover:opacity-80 transition-all focus:outline-none"
+                          onClick={() => {
+                            const originalStatus = (entry as any).original_status || entry.name;
+                            setFilters(prev => ({ ...prev, status: [originalStatus] }));
+                            setDraftFilters(prev => ({ ...prev, status: [originalStatus] }));
+                            setTimeout(() => {
+                              document.getElementById('patent-table-section')?.scrollIntoView({ behavior: 'smooth' });
+                            }, 100);
+                          }}
+                        />
                       ))}
                     </Pie>
-                    <RechartsTooltip />
-                    <Legend />
+                    <RechartsTooltip 
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '12px' }} 
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} 
+                    />
                   </RePieChart>
                 </ResponsiveContainer>
               </div>
             </div>
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6">Filing Trend by Year</h3>
-              <div className="h-64">
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Filing Trend by Year</h3>
+                <span className="text-[10px] uppercase font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Click to Filter</span>
+              </div>
+              <div className="flex-1 min-h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ReBarChart data={yearData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                     <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
                     <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#3b82f6" 
+                      radius={[4, 4, 0, 0]} 
+                      className="cursor-pointer hover:opacity-80 transition-all"
+                      onClick={(data) => {
+                        if (data && data.name) {
+                          const year = data.name;
+                          setDateFilters(prev => ({
+                            ...prev,
+                            // Apply to dateFiled as the primary mapping for 'Filing Trend'
+                            dateFiled: [year]
+                          }));
+                          setTimeout(() => {
+                            document.getElementById('patent-table-section')?.scrollIntoView({ behavior: 'smooth' });
+                          }, 100);
+                        }
+                      }}
+                    />
                   </ReBarChart>
                 </ResponsiveContainer>
               </div>
@@ -974,7 +1089,7 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
           </div>
 
           {/* Interactive Table Controls */}
-          <div className="bg-white rounded-t-3xl border border-slate-200 p-4 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div id="patent-table-section" className="scroll-mt-24 bg-white rounded-t-3xl border border-slate-200 p-4 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative group">
                 <button className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-slate-200">
@@ -1043,11 +1158,11 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
 
           {/* Table */}
           <div className="bg-white border-x border-b border-slate-200 rounded-b-3xl shadow-sm overflow-hidden relative">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[800px]">
               <table className="w-full text-left border-collapse">
-                <thead>
+                <thead className="sticky top-0 z-20 shadow-sm bg-slate-50">
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="p-3 text-center w-12">
+                    <th className="p-3 text-center w-12 bg-slate-50">
                       <input 
                         type="checkbox" 
                         checked={selectedRows.size === processedPatents.length && processedPatents.length > 0}
@@ -1213,7 +1328,11 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                         </button>
                       </td>
                       {tableColumns.filter(c => visibleColumns.includes(c.id)).map(col => {
-                        const val = (patent as any)[col.id];
+                        let val = (patent as any)[col.id];
+                        if (col.id === 'assignees' && !val) val = patent.owners || patent.applicants;
+                        if (col.id === 'country' && !val) val = patent.inventorsCountry?.[0] || patent.familyJurisdictions?.[0] || (patent as any).jurisdiction;
+                        if (col.id === 'familyId' && !val) val = patent.family;
+                        
                         const isDateCol = ['earliestPriorityDate', 'datePublished', 'dateFiled', 'dateGranted', 'pctDate', 'pct371Date', 'pct102Date', 'publishedFiledDate'].includes(col.id);
                         const displayVal = isDateCol ? formatDate(val) : (Array.isArray(val) ? val.join(', ') : String(val || ''));
                         
@@ -1249,12 +1368,20 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
                               <div className="flex items-center gap-2">
                                 <span className="font-bold">{displayVal}</span>
                                 <button 
-                                  onClick={() => navigator.clipboard.writeText(displayVal)}
+                                  onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(displayVal); }}
                                   className="text-slate-400 hover:text-blue-600 transition-colors"
                                   title="Copy Application Number"
                                 >
                                   <Copy className="w-3 h-3" />
                                 </button>
+                                {(patent.source || '').toLowerCase().includes('uspto') && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setUsptoDetailPatent(patent); }}
+                                    className="bg-blue-100 text-blue-800 text-[10px] font-black uppercase px-2 py-0.5 rounded-full hover:bg-blue-200 transition-colors ml-2"
+                                  >
+                                    USPTO Record
+                                  </button>
+                                )}
                               </div>
                             ) : (col.id === 'jurisdiction' || col.id === 'country') ? (
                               getCountryName(displayVal)
@@ -1837,11 +1964,18 @@ export default function PatentAnalyticsView({ initialCompany }: { initialCompany
         </>
       )}
 
-      {!loading && !error && patents.length === 0 && (
+      {!loading && !error && displayPatents.length === 0 && (
         <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-300">
           <PieChart className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <p className="text-slate-500 font-medium">No patent data found.</p>
         </div>
+      )}
+
+      {usptoDetailPatent && (
+        <USPTOPatentDetailModal 
+          patent={usptoDetailPatent} 
+          onClose={() => setUsptoDetailPatent(null)} 
+        />
       )}
     </div>
   );

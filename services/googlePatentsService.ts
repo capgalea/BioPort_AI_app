@@ -8,7 +8,23 @@ export const fetchPatentsFromGooglePatents = async (
   filters?: PatentFilters,
   limit: number = 20
 ): Promise<Patent[]> => {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+  let apiKey = '';
+  if (typeof process !== 'undefined' && process.env) {
+    apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+  }
+  // Try import.meta.env if available (Vite)
+  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) {
+    apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || '';
+  }
+  // Fallback to the globally defined process.env.API_KEY injected by Vite
+  if (!apiKey) {
+    try {
+      apiKey = process.env.API_KEY as string;
+    } catch (e) {
+      // ignore
+    }
+  }
+
   if (!apiKey) return [];
 
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);

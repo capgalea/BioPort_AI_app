@@ -32,7 +32,7 @@ app.get("/api/health", (req, res) => {
     hasIpAuId: !!process.env.IP_AUSTRALIA_CLIENT_ID,
     hasIpAuSecret: !!process.env.IP_AUSTRALIA_CLIENT_SECRET,
     hasPatentsViewKey: !!process.env.PATENTSVIEW_API_KEY,
-    hasUSPTOKey: !!process.env.USPTO_API_KEY,
+    hasUSPTOKey: !!(process.env.USPTO_ODP_API_KEY || process.env.VITE_USPTO_ODP_API_KEY || process.env.USPTO_API_KEY),
     ipAuIdLength: process.env.IP_AUSTRALIA_CLIENT_ID ? process.env.IP_AUSTRALIA_CLIENT_ID.length : 0,
     ipAuSecretLength: process.env.IP_AUSTRALIA_CLIENT_SECRET ? process.env.IP_AUSTRALIA_CLIENT_SECRET.length : 0,
     geminiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : null,
@@ -280,7 +280,7 @@ function compileAST(node: ASTNode, paramPrefix: string, params: any, fieldMapper
 
 app.post("/api/bigquery/search", async (req, res) => {
   try {
-    const { query, applicant, inventor, startDate, endDate, countries, status, limit = 100, dryRun = false } = req.body;
+    const { query, applicant, inventor, startDate, endDate, countries, status, patentType, limit = 100, dryRun = false } = req.body;
     
     // Cost optimization: Default to last 20 years if no date range is provided
     // This leverages partitioning on filing_date
@@ -314,6 +314,11 @@ app.post("/api/bigquery/search", async (req, res) => {
       } else if (status === 'Application') {
         whereClause += ` AND p.inferred_status = 'Application'`;
       }
+    }
+
+    if (patentType) {
+      whereClause += ` AND p.patent_type = @patentType`;
+      params.patentType = patentType;
     }
     
     if (applicant) {
@@ -452,7 +457,7 @@ app.post("/api/bigquery/search", async (req, res) => {
       assignees: row.owners_and_applicants || [],
       inventors: row.inventors || [],
       jurisdiction: row.country || "",
-      source: "Google BigQuery",
+      source: "Google Patents",
       familyId: row.family_id || "",
       link: `https://patents.google.com/patent/${row.applicationNumber}`,
       applicationNumber: row.applicationNumber || "",
@@ -781,7 +786,7 @@ app.get("/api/test-epo-auth", async (req, res) => {
 
 app.get("/api/ask-gemini", async (req, res) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY, fetch: fetch as any } as any);
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro",
       contents: "What is the correct JSON payload for the IP Australia Australian Patent Search API v1 POST /search/quick endpoint? Please provide an example. I need the exact properties it expects.",
@@ -840,6 +845,77 @@ app.get("/api/test-serp", async (req, res) => {
     res.json(response.data.organic_results?.slice(0, 5) || response.data);
   } catch (error: any) {
     res.status(500).json({ error: error.response?.data || error.message });
+  }
+});
+
+// ─── USPTO PFW API Proxy ──────────────────────────────────────────
+const USPTO_BASE = 'https://api.uspto.gov/api/v1/patent/applications';
+const USPTO_KEY  = process.env.USPTO_ODP_API_KEY || process.env.VITE_USPTO_ODP_API_KEY || '';
+
+const usptoHeaders = () => ({
+  'x-api-key':    USPTO_KEY,
+  'Content-Type': 'application/json',
+  'Accept':       'application/json',
+});
+
+// POST search
+app.post('/api/uspto/applications/search', async (req, res) => {
+  try {
+    const upstream = await fetch(`${USPTO_BASE}/search`, {
+      method:  'POST',
+      headers: usptoHeaders(),
+      body:    JSON.stringify(req.body),
+    });
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET search (simple fallback)
+app.get('/api/uspto/applications/search', async (req, res) => {
+  try {
+    const qs = new URLSearchParams(req.query as any).toString();
+    const upstream = await fetch(`${USPTO_BASE}/search?${qs}`, {
+      headers: usptoHeaders(),
+    });
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Per-application sub-resource (meta-data, continuity, documents,
+// adjustment, transactions, assignment, foreign-priority,
+// associated-documents)
+app.get('/api/uspto/applications/:appNum/:resource', async (req, res) => {
+  try {
+    const { appNum, resource } = req.params;
+    const upstream = await fetch(
+      `${USPTO_BASE}/${encodeURIComponent(appNum)}/${resource}`,
+      { headers: usptoHeaders() }
+    );
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Full application by number
+app.get('/api/uspto/applications/:appNum', async (req, res) => {
+  try {
+    const { appNum } = req.params;
+    const upstream = await fetch(
+      `${USPTO_BASE}/${encodeURIComponent(appNum)}`,
+      { headers: usptoHeaders() }
+    );
+    const data = await upstream.json();
+    res.status(upstream.status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

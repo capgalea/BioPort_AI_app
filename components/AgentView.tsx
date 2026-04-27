@@ -208,6 +208,10 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
         content: m.content
       }));
       
+      const botMsgIndex = updatedMessages.length;
+      const initialBotMsg: ChatMessage = { role: 'model', content: '', timestamp: Date.now() };
+      setMessages(prev => [...prev, initialBotMsg]);
+      
       const result = await Promise.race([
         chatWithAgent(
           historyForApi,
@@ -222,7 +226,14 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
             useUSPatentSearch,
             contextData
           },
-          chatInstanceRef.current
+          chatInstanceRef.current,
+          (chunkText) => {
+             setMessages(prev => {
+                const newMessages = [...prev];
+                newMessages[botMsgIndex] = { ...newMessages[botMsgIndex], content: chunkText };
+                return newMessages;
+             });
+          }
         ),
         new Promise<never>((_, reject) => {
            controller.signal.addEventListener('abort', () => reject(new Error("Aborted")));
@@ -236,14 +247,12 @@ const AgentView: React.FC<AgentViewProps> = ({ companies }) => {
       
       const sources = result.groundingMetadata?.groundingChunks?.map((c: any) => c.web).filter(Boolean);
 
-      const botMsg: ChatMessage = { 
-        role: 'model', 
-        content: result.text || "I'm sorry, I couldn't generate a response.",
-        sources,
-        timestamp: Date.now()
-      };
-
-      const finalMessages = [...updatedMessages, botMsg];
+      const finalMessages = [...updatedMessages, {
+         role: 'model' as const,
+         content: result.text || initialBotMsg.content || "I'm sorry, I couldn't generate a response.",
+         sources,
+         timestamp: Date.now()
+      }];
       setMessages(finalMessages);
       saveCurrentSession(finalMessages);
 

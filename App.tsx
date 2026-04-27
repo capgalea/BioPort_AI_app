@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import { Download, LayoutGrid, List as ListIcon, AlertCircle, FileSpreadsheet, Trash2, PieChart, Database, ChevronDown, Search, Dna, HelpCircle, RefreshCw, GraduationCap, BookOpen, Microscope, ExternalLink, User as UserIcon, Filter, Bot, Loader2, LogOut, Settings, Cloud, Network, EyeOff, X, AlertTriangle, Calendar, CloudDownload, Info, MousePointerClick, Sparkles, Briefcase, Home, Layers, Lock, UserPlus, Plus, Clock, CloudLightning, Workflow, Cpu, ShieldCheck, Map as MapIcon, LayoutList, PlayCircle, HelpCircle as HelpIcon, History, Pill, Building2, Newspaper, Fingerprint, FileText } from 'lucide-react';
-import { CompanyData, AnalysisStatus, isAcademicEntity, ViewMode, PipelineDrug, Publication, ResearcherSummary, getEntityCategory } from './types.ts';
+import { CompanyData, AnalysisStatus, isAcademicEntity, ViewMode, PipelineDrug, Publication, ResearcherSummary, getEntityCategory, Patent } from './types.ts';
 import { analyzeCompanies, discoverCompaniesBySector, discoverWithAgent } from './services/geminiService.ts';
 import { cacheService } from './services/cacheService.ts';
 import { supabaseService } from './services/supabaseService.ts';
@@ -345,6 +345,7 @@ function App() {
   const [progress, setProgress] = useState<{ current: number, total: number, message: string } | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<CompanyData | null>(null);
   const [patentAnalyticsCompany, setPatentAnalyticsCompany] = useState<string | null>(null);
+  const [analyticsPatents, setAnalyticsPatents] = useState<Patent[]>([]);
   const [selectedResearcher, setSelectedResearcher] = useState<any | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -399,8 +400,6 @@ function App() {
         api_host: phHost,
         autocapture: false, // Disable autocapture to prevent noise in dev
         capture_pageview: false, // We handle it manually
-        capture_web_vitals: true,
-        session_recording: {}
       });
     } catch (e) {
       console.warn("PostHog init failed:", e);
@@ -1224,8 +1223,9 @@ function App() {
              </div>
           )}
 
-          {view === 'patentAnalytics' && <PatentAnalyticsView initialCompany={patentAnalyticsCompany || undefined} />}
+          {view === 'patentAnalytics' && <PatentAnalyticsView initialCompany={patentAnalyticsCompany || undefined} patents={analyticsPatents} />}
           {view === 'patentAIAgent' && <PatentAIAgentView companies={allCompanies} />}
+          {view === 'patentSearch' && <PatentSearchPage onPatentsRetrieved={(patents: Patent[]) => setAnalyticsPatents(patents)} />}
 
           {view === 'employment' && <EmploymentView />}
           {view === 'systemInfo' && <SystemInfoView />}

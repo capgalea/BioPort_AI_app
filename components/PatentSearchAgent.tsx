@@ -60,19 +60,18 @@ const PatentSearchAgent: React.FC = () => {
       
       // USPTO Search
       if (selectedDbs.includes('uspto')) {
-        const usptoResults = await patentService.getPatents(query, {}, 10);
+        const usptoResults = await patentService.getPatents(query, {}, 10, 'uspto');
         allResults = [...allResults, ...usptoResults.map(r => ({ ...r, source: 'USPTO' }))];
       }
 
-      // Google Patents Search (Placeholder)
+      // Google Patents Search
       if (selectedDbs.includes('google')) {
-        // Placeholder for Google Patents Search
-        allResults = [...allResults, { 
-          id: 'GOOGLE-123', 
-          title: `Google Patent Search for: ${query}`, 
-          assignee: 'Various', 
-          relevance: 0.9 
-        }];
+        try {
+          const gResults = await patentService.getPatents(query, {}, 10, 'googlePatents');
+          allResults = [...allResults, ...gResults.map(r => ({ ...r, source: 'Google Patents' }))];
+        } catch (e: any) {
+          console.error('Google Patents fetching failed:', e);
+        }
       }
 
       setResults(allResults);

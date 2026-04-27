@@ -2,6 +2,7 @@
 import { Patent } from '../types.ts';
 import { fetchPatentsFromIPAustralia } from './ipAustraliaService.ts';
 import { fetchPatentsFromGooglePatents } from './googlePatentsService.ts';
+import { searchPatents as searchUSPTOPatents } from './usptoService.ts';
 
 export interface PatentFilters {
   inventor?: string;
@@ -11,6 +12,7 @@ export interface PatentFilters {
   endDate?: string;
   countries?: string[];
   status?: string;
+  patentType?: string;
 }
 
 export interface BigQueryStats {
@@ -37,7 +39,7 @@ class PatentService {
     query: string, 
     filters?: PatentFilters, 
     limit?: number, 
-    source: 'ipAustralia' | 'googlePatents' | 'bigquery' = 'googlePatents'
+    source: 'ipAustralia' | 'googlePatents' | 'bigquery' | 'uspto' = 'googlePatents'
   ): Promise<Patent[]> {
     const result = await this.getPatentsWithStats(query, filters, limit, source, false);
     return (result as PatentResults).results;
@@ -50,12 +52,24 @@ class PatentService {
     query: string, 
     filters?: PatentFilters, 
     limit?: number, 
-    source: 'ipAustralia' | 'googlePatents' | 'bigquery' = 'googlePatents',
+    source: 'ipAustralia' | 'googlePatents' | 'bigquery' | 'uspto' = 'googlePatents',
     dryRun: boolean = false
   ): Promise<Patent[] | PatentResults> {
     console.log(`Fetching patents for: ${query} from ${source}${dryRun ? ' (Dry Run)' : ''}`);
     try {
-      if (source === 'ipAustralia') {
+      if (source === 'uspto') {
+        const usptoRes = await searchUSPTOPatents({
+          query,
+          inventors: filters?.inventor ? [filters.inventor] : undefined,
+          assignees: filters?.applicant ? [filters.applicant] : undefined,
+          status: filters?.status,
+          dateFrom: filters?.startDate,
+          dateTo: filters?.endDate,
+          countries: filters?.countries,
+          limit: limit
+        });
+        return { results: usptoRes.patents };
+      } else if (source === 'ipAustralia') {
         const results = await fetchPatentsFromIPAustralia(query, filters, limit);
         return { results };
       } else if (source === 'googlePatents') {
