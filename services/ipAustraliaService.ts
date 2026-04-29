@@ -24,8 +24,10 @@ export const fetchPatentsFromIPAustralia = async (query: string, filters?: Paten
 
       return {
         applicationNumber: p.applicationNumber || p.id || p.ipRightIdentifier || "",
+        actualApplicationNumber: p.id || p.applicationNumber || p.ipRightIdentifier || "",
         owners: extractNames(p.owners || p.applicants),
         applicants: extractNames(p.applicants),
+        assignees: extractNames(p.owners || p.applicants),
         inventors: extractNames(p.inventors),
         title: p.title || p.inventionTitle || "",
         abstract: p.abstract || "",

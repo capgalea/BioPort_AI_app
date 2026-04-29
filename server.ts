@@ -17,11 +17,23 @@ console.log("IP_AUSTRALIA_CLIENT_SECRET set:", !!process.env.IP_AUSTRALIA_CLIENT
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+import { fetchPatentsFromGooglePatents } from './services/googlePatentsService.ts';
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+app.post('/api/googlePatents', async (req, res) => {
+  try {
+    const { query, filters, limit } = req.body;
+    const patents = await fetchPatentsFromGooglePatents(query, filters, limit);
+    res.json(patents);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get("/api/health", (req, res) => {
   res.json({ 
@@ -455,12 +467,16 @@ app.post("/api/bigquery/search", async (req, res) => {
       abstract: row.abstract || "",
       dateFiled: row.dateFiled ? String(row.dateFiled.value || row.dateFiled) : "",
       assignees: row.owners_and_applicants || [],
+      owners: row.owners_and_applicants || [],
+      applicants: row.owners_and_applicants || [],
       inventors: row.inventors || [],
       jurisdiction: row.country || "",
       source: "Google Patents",
       familyId: row.family_id || "",
-      link: `https://patents.google.com/patent/${row.applicationNumber}`,
+      link: `https://patents.google.com/patent/${(row.applicationNumber || "").replace(/[-\s]/g, '')}`,
+      url: `https://patents.google.com/patent/${(row.applicationNumber || "").replace(/[-\s]/g, '')}`,
       applicationNumber: row.applicationNumber || "",
+      actualApplicationNumber: row.applicationNumber || "",
       patentType: row.patent_type || "",
       patentKind: row.patent_kind || "",
       earliestPriorityDate: row.earliest_priority_date ? String(row.earliest_priority_date.value || row.earliest_priority_date) : "",
@@ -505,11 +521,21 @@ app.post("/api/patents/search", async (req, res) => {
         logDebug(`SerpApi search successful, found ${serpResults.length} results`);
         const mappedResults = serpResults.map((item: any) => ({
           applicationNumber: item.publication_number || item.patent_id || "",
+          actualApplicationNumber: item.publication_number || item.patent_id || "",
           title: item.title || "",
-          applicants: [item.assignee || item.company || ""],
-          status: "Published",
+          abstract: item.snippet || item.abstract || "",
+          applicants: item.assignee ? [item.assignee] : (item.company ? [item.company] : []),
+          owners: item.assignee ? [item.assignee] : (item.company ? [item.company] : []),
+          assignees: item.assignee ? [item.assignee] : (item.company ? [item.company] : []),
+          inventors: item.inventors || item.inventor ? (Array.isArray(item.inventors) ? item.inventors : (item.inventor ? item.inventor.split(', ').map((x: string) => x.trim()) : [])) : [],
+          status: item.grant_date ? "Granted" : "Published",
           dateFiled: item.filing_date || item.date || "",
-          id: item.publication_number || item.patent_id || ""
+          datePublished: item.publication_date || item.grant_date || "",
+          dateGranted: item.grant_date || "",
+          id: item.publication_number || item.patent_id || "",
+          source: "Google Patents",
+          url: item.patent_link || item.link || item.url || `https://patents.google.com/patent/${item.publication_number || item.patent_id}`,
+          link: item.patent_link || item.link || item.url || `https://patents.google.com/patent/${item.publication_number || item.patent_id}`,
         }));
         return res.json({ results: mappedResults });
       }
@@ -887,6 +913,29 @@ app.get('/api/uspto/applications/search', async (req, res) => {
   }
 });
 
+// Proxy XML download to parse abstract
+app.get('/api/uspto/abstract', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url || typeof url !== 'string') {
+      return res.status(400).json({ error: 'Missing or invalid url' });
+    }
+    const upstream = await fetch(url, { headers: usptoHeaders() });
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: 'Failed to fetch xml' });
+    }
+    const xml = await upstream.text();
+    const match = xml.match(/<abstract[^>]*>([\s\S]*?)<\/abstract>/i);
+    let abstract = "Not available via USPTO metadata API";
+    if (match) {
+      abstract = match[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    res.json({ abstract });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Per-application sub-resource (meta-data, continuity, documents,
 // adjustment, transactions, assignment, foreign-priority,
 // associated-documents)
@@ -914,6 +963,64 @@ app.get('/api/uspto/applications/:appNum', async (req, res) => {
     );
     const data = await upstream.json();
     res.status(upstream.status).json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/check-url', async (req, res) => {
+  try {
+    const { urls } = req.body;
+    if (!urls || !Array.isArray(urls)) {
+      return res.status(400).json({ error: 'Missing or invalid urls array' });
+    }
+    
+    // We'll check urls concurrently
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        try {
+          const u = url.startsWith('http') ? url : `https://${url}`;
+          
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+          
+          try {
+            const response = await fetch(u, {
+              method: 'GET',
+              redirect: 'follow', // follow redirect to get final url
+              signal: controller.signal, // ignore type error if any for AbortSignal
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+              }
+            } as any);
+            clearTimeout(timeout);
+            
+            if (response.status === 404) {
+               return { url, ok: false, finalUrl: null };
+            }
+            
+            return { url, ok: true, finalUrl: response.url || u };
+          } catch (e: any) {
+            clearTimeout(timeout);
+            // Some websites block bot fetch requests completely.
+            // Rather than filtering out potentially valid sites that just blocked us (like Bloomberg),
+            // if the error is fetch-related (network error) rather than a 404, we might want to keep it.
+            // Actually, if it timed out, it might be valid. Let's return ok:true for fetch errors just in case,
+            // but 404s we definitely return ok:false.
+            // BUT wait, fake URLs will give DNS errors (ENOTFOUND). Let's filter out ENOTFOUND.
+            if (e.message && e.message.includes('ENOTFOUND')) {
+                return { url, ok: false, finalUrl: null };
+            }
+            // For other generic errors, assume it's valid to avoid aggressive filtering
+            return { url, ok: true, finalUrl: u };
+          }
+        } catch (e) {
+          return { url, ok: false, finalUrl: null };
+        }
+      })
+    );
+    
+    res.json(results);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

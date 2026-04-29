@@ -17,8 +17,8 @@ import { getCountryName, countryNames } from '../src/constants/countryCodes';
 import USPTOPatentDetailModal from './USPTOPatentDetailModal';
 
 const INITIAL_COLUMNS = [
-  { id: 'applicationNumber', label: 'Application Number' },
-  { id: 'assignees', label: 'Assignees' },
+  { id: 'actualApplicationNumber', label: 'Patent Number' },
+  { id: 'assignees', label: 'Current Assignee' },
   { id: 'inventors', label: 'Inventors' },
   { id: 'title', label: 'Title' },
   { id: 'abstract', label: 'Abstract' },
@@ -504,7 +504,7 @@ export default function PatentAnalyticsView({ initialCompany, patents: passedPat
       result = result.filter(p => {
         const src = (p.source || '').toLowerCase();
         const f = dataSourceFilter.toLowerCase();
-        const c = String(p.country || p.jurisdiction || p.applicationNumber || p.publicationNumber || p.actualApplicationNumber || '').toLowerCase();
+        const c = String(p.country || p.applicationNumber || p.actualApplicationNumber || '').toLowerCase();
 
         if (f.includes('uspto')) return src.includes('uspto') || c.startsWith('us');
         if (f.includes('epo')) return src.includes('epo') || src.includes('ops') || c.startsWith('ep');
@@ -1364,13 +1364,13 @@ export default function PatentAnalyticsView({ initialCompany, patents: passedPat
                               }
                             }}
                           >
-                            {col.id === 'applicationNumber' ? (
+                            {col.id === 'actualApplicationNumber' ? (
                               <div className="flex items-center gap-2">
                                 <span className="font-bold">{displayVal}</span>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(displayVal); }}
                                   className="text-slate-400 hover:text-blue-600 transition-colors"
-                                  title="Copy Application Number"
+                                  title="Copy Patent Number"
                                 >
                                   <Copy className="w-3 h-3" />
                                 </button>
@@ -1469,7 +1469,7 @@ export default function PatentAnalyticsView({ initialCompany, patents: passedPat
                 <div className="p-6 overflow-y-auto flex-1">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                     <div>
-                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Assignees / Applicants</h4>
+                      <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Current Assignee</h4>
                       <p className="text-sm font-medium text-slate-800">
                         {previewPatent.applicants?.length ? previewPatent.applicants.join(', ') : 'N/A'}
                       </p>
@@ -1622,7 +1622,7 @@ export default function PatentAnalyticsView({ initialCompany, patents: passedPat
                 
                 <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
                   <a 
-                    href={`https://patents.google.com/?q=${encodeURIComponent(`(${previewPatent.title || ''}) AND ${previewPatent.applicationNumber}`)}`}
+                    href={`https://patents.google.com/?q=${encodeURIComponent(previewPatent.title ? `"${previewPatent.title}"` : previewPatent.applicationNumber)}`}
                     target="_blank"
                     rel="noreferrer"
                     className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 flex items-center gap-2 transition-colors"

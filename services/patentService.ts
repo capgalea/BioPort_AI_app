@@ -1,7 +1,6 @@
 
 import { Patent } from '../types.ts';
 import { fetchPatentsFromIPAustralia } from './ipAustraliaService.ts';
-import { fetchPatentsFromGooglePatents } from './googlePatentsService.ts';
 import { searchPatents as searchUSPTOPatents } from './usptoService.ts';
 
 export interface PatentFilters {
@@ -31,6 +30,44 @@ export interface PatentResults {
  * PatentService handles fetching and processing patent data.
  * Integrates with IP Australia APIs and Google Patents.
  */
+function deduplicatePatents(patents: Patent[]): Patent[] {
+  const seenFamily = new Set<string>();
+  const seenTitle = new Set<string>();
+  const seenAppNum = new Set<string>();
+
+  return patents.filter(p => {
+    const family = (p.familyId || p.family || '').toString().trim();
+    
+    // Normalize title to ignore case and non-alphanumeric characters or small stopwords
+    // e.g. "Identifying compounds modifying" vs "Identification of compounds that modify"
+    // is a bit trickier, but removing spaces and non-alphanumeric helps for exact matches.
+    const rawTitle = p.title || '';
+    const titleKey = rawTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const appNumKey = (p.actualApplicationNumber || p.applicationNumber || '').trim().toLowerCase();
+
+    // If family is present and already seen, it's a duplicate
+    if (family && seenFamily.has(family)) {
+      return false;
+    }
+    
+    // If title key is already seen (and not empty), it's a duplicate
+    if (titleKey && seenTitle.has(titleKey)) {
+      return false;
+    }
+
+    // If app number is already seen (and not empty), it's a duplicate
+    if (appNumKey && seenAppNum.has(appNumKey)) {
+      return false;
+    }
+
+    if (family) seenFamily.add(family);
+    if (titleKey) seenTitle.add(titleKey);
+    if (appNumKey) seenAppNum.add(appNumKey);
+    
+    return true;
+  });
+}
+
 class PatentService {
   /**
    * Fetches patents for a specific company or topic.
@@ -68,13 +105,21 @@ class PatentService {
           countries: filters?.countries,
           limit: limit
         });
-        return { results: usptoRes.patents };
+        return { results: deduplicatePatents(usptoRes.patents) };
       } else if (source === 'ipAustralia') {
         const results = await fetchPatentsFromIPAustralia(query, filters, limit);
-        return { results };
+        return { results: deduplicatePatents(results) };
       } else if (source === 'googlePatents') {
-        const results = await fetchPatentsFromGooglePatents(query, filters, limit);
-        return { results };
+        const response = await fetch('/api/patents/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, filters, source: 'google', limit })
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch from Google Patents proxy');
+        }
+        const results = await response.json();
+        return { results: deduplicatePatents(results.results || results) };
       } else if (source === 'bigquery') {
         const response = await fetch('/api/bigquery/search', {
           method: 'POST',
@@ -96,6 +141,7 @@ class PatentService {
           throw new Error(errorData.error || 'Failed to fetch from BigQuery');
         }
         const data = await response.json();
+        console.log(`BigQuery search results: ${data.results ? data.results.length : 0} results found`);
         
         if (dryRun) {
           return {
@@ -110,7 +156,7 @@ class PatentService {
         }
 
         return {
-          results: data.results || [],
+          results: deduplicatePatents(data.results || []),
           statistics: data.statistics ? {
             totalBytesProcessed: Number(data.statistics.totalBytesProcessed),
             cacheHit: data.statistics.cacheHit,

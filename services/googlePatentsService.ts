@@ -13,8 +13,8 @@ export const fetchPatentsFromGooglePatents = async (
     apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
   }
   // Try import.meta.env if available (Vite)
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) {
-    apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || '';
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) {
+    apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY || (import.meta as any).env.VITE_API_KEY || '';
   }
   // Fallback to the globally defined process.env.API_KEY injected by Vite
   if (!apiKey) {
@@ -26,6 +26,7 @@ export const fetchPatentsFromGooglePatents = async (
   }
 
   if (!apiKey) return [];
+  console.log("googlePatentsService apiKey length:", apiKey.length);
 
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
 
@@ -49,13 +50,15 @@ export const fetchPatentsFromGooglePatents = async (
      - status (string, must be "Granted")
      - applicants (array of strings, the companies or institutions that applied for/own the patent)
      - inventors (array of strings, the people who invented the patent)
+     - patentKind (string, e.g., "A", "B1", "B2")
+     - familyId (string, the patent family ID)
   4. ZERO HALLUCINATION POLICY: DO NOT invent patents. Only return factual data backed by the search results.
   `;
 
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() =>
       ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -70,6 +73,8 @@ export const fetchPatentsFromGooglePatents = async (
                 applicationNumber: { type: Type.STRING },
                 title: { type: Type.STRING },
                 abstract: { type: Type.STRING },
+                patentKind: { type: Type.STRING },
+                familyId: { type: Type.STRING },
                 dateFiled: { type: Type.STRING },
                 dateGranted: { type: Type.STRING },
                 url: { type: Type.STRING },
@@ -77,7 +82,7 @@ export const fetchPatentsFromGooglePatents = async (
                 applicants: { type: Type.ARRAY, items: { type: Type.STRING } },
                 inventors: { type: Type.ARRAY, items: { type: Type.STRING } }
               },
-              required: ["applicationNumber", "title", "dateFiled", "url", "status", "applicants", "inventors"]
+              required: ["applicationNumber", "title", "dateFiled", "url", "status", "applicants", "inventors", "abstract", "patentKind", "familyId"]
             }
           }
         }
@@ -85,17 +90,22 @@ export const fetchPatentsFromGooglePatents = async (
     );
 
     const text = response.text || "[]";
+    console.log("Model response text length:", text.length);
     let data: any[] = [];
     try {
       data = JSON.parse(text);
     } catch (e) {
       console.error("Failed to parse Google Patents JSON:", e);
+      console.log("Raw text was:", text);
     }
 
     return data.map((p: any) => ({
       applicationNumber: p.applicationNumber || "Unknown",
+      actualApplicationNumber: p.applicationNumber || "Unknown",
       title: p.title || "Untitled Patent",
       abstract: p.abstract || "",
+      patentKind: p.patentKind || "",
+      familyId: p.familyId || "",
       dateFiled: p.dateFiled || "",
       dateGranted: p.dateGranted || "",
       url: p.url || `https://patents.google.com/patent/${p.applicationNumber}`,
@@ -105,15 +115,16 @@ export const fetchPatentsFromGooglePatents = async (
       inventors: p.inventors || [],
       claim: "",
       description: "",
-      family: "",
+      family: p.familyId || "",
       familyJurisdictions: [],
       datePublished: p.dateGranted || "",
       earliestPriorityDate: "",
       citedWork: [],
       source: "Google Patents"
     }));
-  } catch (error) {
-    console.error("Error fetching from Google Patents:", error);
+  } catch (error: any) {
+    console.error("Error fetching from Google Patents:", error.message || error);
+    if (error.stack) console.error(error.stack);
     return [];
   }
 };

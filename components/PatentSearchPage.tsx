@@ -21,7 +21,7 @@ const DATABASES = {
 };
 
 const PatentSearchPage: React.FC<PatentSearchPageProps> = (props) => {
-  const [dataSource, setDataSource] = useState<string>('IP Australia');
+  const [dataSource, setDataSource] = useState<string>('USPTO');
 
   // USPTO Parameters
   const [usptoParams, setUsptoParams] = useState<USPTOSearchParams>({
@@ -128,7 +128,7 @@ const PatentSearchPage: React.FC<PatentSearchPageProps> = (props) => {
 
     try {
       if (dataSource === 'Google Patents') {
-        const patents = await patentService.getPatents(usptoParams.query || '', mappedFilters, usptoLimit, 'googlePatents');
+        const patents = await patentService.getPatents(usptoParams.query || '', mappedFilters, usptoLimit, 'bigquery');
         
         setUsptoResults(patents);
         setUsptoTotal(patents.length);
@@ -199,14 +199,13 @@ const PatentSearchPage: React.FC<PatentSearchPageProps> = (props) => {
     posthog.capture('uspto_export_csv', { count: usptoResults.length });
     
     const headers = [
-      'Application Number', 'Assignees', 'Inventors', 'Title', 'Abstract',
+      'Current Assignee', 'Inventors', 'Title', 'Abstract',
       'Status', 'Patent Type', 'Patent Kind', 'Family ID', 'Date Filed',
       'Earliest Priority Date', 'Publication Date', 'Country'
     ];
 
     const csvRows = usptoResults.map(p => {
       const row = [
-        p.applicationNumber,
         p.owners.join('; '),
         p.inventors.join('; '),
         p.title,

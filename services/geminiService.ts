@@ -80,7 +80,7 @@ export const stripLegalSuffixes = (name: string): string => {
 export const checkGeminiHealth = async (): Promise<boolean> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return false;
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
@@ -250,7 +250,7 @@ export const generatePatentComparisonSummary = async (
 ): Promise<{ summary: string, references: { title: string, url: string }[] }> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("API Key required.");
 
@@ -313,7 +313,7 @@ export const runPatentAIAgent = async (
 ): Promise<{ summary: string, rating: string, feedback: string, references: { title: string, url: string }[] }> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("API Key required.");
 
@@ -406,7 +406,7 @@ export const runPatentAIAgent = async (
 export const enrichPatentDetails = async (patent: Patent): Promise<Partial<Patent>> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return {};
 
@@ -473,7 +473,7 @@ export const runAssigneeAnalysisPipeline = async (
 }> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("API Key required.");
 
@@ -581,7 +581,7 @@ export const runAssigneeAnalysisPipeline = async (
 export const fetchAllClinicalTrials = async (companyName: string): Promise<PipelineDrug[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return [];
   
@@ -648,7 +648,7 @@ export const fetchLatestNews = async (
 ): Promise<NewsItem[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return [];
   
@@ -742,7 +742,7 @@ export const fetchLatestNews = async (
     const webChunks = chunks.map(chunk => chunk.web).filter(Boolean);
     const supports = groundingMetadata?.groundingSupports || [];
 
-    const news = (data || []).map((item: any, idx: number) => {
+    let news = (data || []).map((item: any, idx: number) => {
        let cleanUrl = (item.url || '').trim();
        
        if (webChunks.length > 0) {
@@ -772,46 +772,14 @@ export const fetchLatestNews = async (
            }
          }
 
-         // 2. Fallback to scoring if groundingSupports didn't find anything
-         let bestMatch = null;
-         let maxScore = 0;
-
-         if (!supportedUrl) {
-           const itemTitle = (item.title || '').toLowerCase();
-           // Filter out common words that cause false positive matches
-           const stopWords = ['report', 'market', 'forecast', 'global', 'industry', 'analysis', 'size', 'share', 'growth', 'trends', '2024', '2025', '2026', '2027', '2028', '2029', '2030', '2031', '2032', '2033', '2034'];
-           const itemWords = itemTitle.split(/[\s\W]+/).filter((w: string) => w.length > 3 && !stopWords.includes(w));
-           
-           for (const chunk of webChunks) {
-             if (!chunk.uri) continue;
-             const chunkTitle = (chunk.title || '').toLowerCase();
-             const chunkUri = chunk.uri.toLowerCase();
-             
-             let score = 0;
-             for (const word of itemWords) {
-               if (chunkTitle.includes(word)) score += 3;
-               else if (chunkUri.includes(word)) score += 1;
-             }
-             
-             if (score > maxScore) {
-               maxScore = score;
-               bestMatch = chunk.uri;
-             }
-           }
-         }
-         
-         const isGenericUrl = cleanUrl.split('/').length <= 4; // e.g., https://www.globenewswire.com/
-         const isUrlInChunks = webChunks.some(c => c.uri === cleanUrl);
-
-         // Apply the best URL we found
+         // Always prefer the supportedUrl (ground truth) over the LLM-generated URL,
+         // since the LLM often hallucinates deep links.
          if (supportedUrl) {
            cleanUrl = supportedUrl;
-         } else if (!isUrlInChunks || isGenericUrl) {
-           if (bestMatch && maxScore >= 3) {
-             cleanUrl = bestMatch;
-           } else if (!cleanUrl.startsWith('http') && webChunks[idx]?.uri) {
-             cleanUrl = webChunks[idx].uri;
-           }
+         } else if (bestMatch && maxScore >= 3) {
+           cleanUrl = bestMatch;
+         } else if (!cleanUrl.startsWith('http') && webChunks[idx]?.uri) {
+           cleanUrl = webChunks[idx].uri;
          }
        }
 
@@ -836,6 +804,32 @@ export const fetchLatestNews = async (
         return false;
       }
     });
+
+    if (news.length > 0) {
+      try {
+        // Check URLs via backend proxy
+        const checkRes = await fetch('/api/check-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: news.map((n: any) => n.url) })
+        });
+        
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          // Filter out failed URLs and update redirect URLs
+          news = news.filter((n: any) => {
+            const result = checkData.find((ch: any) => ch.url === n.url);
+            if (result && result.ok) {
+              n.url = result.finalUrl || n.url;
+              return true;
+            }
+            return false;
+          });
+        }
+      } catch (e) {
+        console.warn("URL check proxy failed, keeping original list", e);
+      }
+    }
 
     if (news.length > 0) {
       const cacheTopic = companyName || `${sector || "Global"}_${[...categories].sort().join("_")}_${timePeriod}`;
@@ -906,7 +900,7 @@ export const analyzeCompanies = async (
 
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) {
     throw new Error("Intelligence Node Authorization Required (API Key missing).");
@@ -953,12 +947,12 @@ export const analyzeCompanies = async (
       const response: GenerateContentResponse = await withExponentialBackoff(() => 
         raceWithSignal(
           generateContentWithTracking(ai, {
-            model: "gemini-3-flash-preview", 
+            model: "gemini-3.1-pro-preview", 
             contents: prompt,
             config: { 
               tools: [{ googleSearch: {} }], 
-              temperature: 0.0,
-              thinkingConfig: { thinkingBudget: 0 } 
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 2048 } 
             },
           }), 
           signal
@@ -1004,7 +998,7 @@ export const discoverWithAgent = async (
 ): Promise<CompanyData[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("API Key required.");
 
@@ -1025,11 +1019,11 @@ export const discoverWithAgent = async (
           const response: GenerateContentResponse = await withExponentialBackoff(() => 
             raceWithSignal(
               generateContentWithTracking(ai, {
-                  model: "gemini-3-flash-preview",
+                  model: "gemini-3.1-pro-preview",
                   contents: prompt,
                   config: {
                       tools: [{ googleSearch: {} }],
-                      thinkingConfig: { thinkingBudget: 0 },
+                      thinkingConfig: { thinkingBudget: 2048 },
                       responseMimeType: "application/json",
                       responseSchema: {
                         type: Type.OBJECT,
@@ -1072,7 +1066,7 @@ export const performDrugDeepSearch = async (
 ): Promise<DrugDeepDive[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey || queries.length === 0) return [];
   
@@ -1202,7 +1196,7 @@ export const searchScienceJobs = async (filters: {
 }): Promise<JobOpportunity[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return [];
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
@@ -1229,7 +1223,7 @@ export const searchScienceJobs = async (filters: {
 export const analyzeResearcher = async (name: string, institution: string): Promise<ResearcherProfile | null> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
@@ -1249,7 +1243,7 @@ export const analyzeResearcher = async (name: string, institution: string): Prom
 export const analyzeDrug = async (drugName: string): Promise<DrugProfile | null> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return null;
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
@@ -1276,22 +1270,24 @@ export const discoverCompaniesBySector = async (
 ): Promise<CompanyData[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("API Key required.");
   checkAbort(signal);
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
-  const prompt = `Identify top ${limit} entities for: "${sectorQuery}" in "${region}". Return JSON { "companies": ["Brand1", "Brand2"] }.`;
+  const filterStr = filters && filters.length > 0 ? ` The entities MUST be of the following types: ${filters.join(', ')}.` : '';
+  const prompt = `Use Google Search to find modern, current entities. Identify top ${limit} real-world organizations for: "${sectorQuery}" in "${region}".${filterStr} Return JSON { "companies": ["Entity1", "Entity2"] }. Ensure you return actual names of universities, companies, or institutions matching those types.`;
   try {
      const res: GenerateContentResponse = await withExponentialBackoff(() => 
        raceWithSignal(
            generateContentWithTracking(ai, {
-              model: "gemini-3-flash-preview", 
+              model: "gemini-3.1-pro-preview", 
               contents: prompt,
               config: { 
+                tools: [{ googleSearch: {} }],
                 responseMimeType: "application/json", 
-                temperature: 0.6,
-                thinkingConfig: { thinkingBudget: 0 },
+                temperature: 0.5,
+                thinkingConfig: { thinkingBudget: 2048 },
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: { companies: { type: Type.ARRAY, items: { type: Type.STRING } } }
@@ -1312,7 +1308,7 @@ export const discoverCompaniesBySector = async (
 export const fetchDetailedPatentsFromIPAustralia = async (query: string): Promise<any[]> => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) return [];
   
@@ -1389,7 +1385,7 @@ export const chatWithAgent = async (
 ) => {
   let apiKey = '';
   if (typeof process !== 'undefined' && process.env) { apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || ''; }
-  if (!apiKey && typeof import.meta !== 'undefined' && import.meta.env) { apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).VITE_API_KEY || ''; }
+  if (!apiKey && typeof import.meta !== 'undefined' && (import.meta as any).env) { apiKey = ((import.meta as any).env as any).VITE_GEMINI_API_KEY || ((import.meta as any).env as any).VITE_API_KEY || ''; }
   if (!apiKey) { try { apiKey = process.env.API_KEY as string; } catch (e) {} }
   if (!apiKey) throw new Error("Authorization key missing.");
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);

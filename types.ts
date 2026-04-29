@@ -230,6 +230,7 @@ export interface Patent {
   status: string;
   family: string;
   familyJurisdictions: string[];
+  familyId?: string;
   dateFiled: string;
   datePublished: string;
   earliestPriorityDate: string;

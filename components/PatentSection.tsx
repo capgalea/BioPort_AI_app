@@ -20,10 +20,11 @@ const PatentSection: React.FC<PatentSectionProps> = ({ companyName, onPatentSear
       setLoading(true);
       setError(null);
       try {
-        // Fetch up to 20 granted patents using Google Patents
-        const rawData: Patent[] = await patentService.getPatents("", { applicant: companyName }, 20, 'googlePatents');
-        const grantedPatents = rawData.filter(p => p.status === 'Granted').slice(0, 20);
-        setPatents(grantedPatents);
+        // Fetch up to 100 granted patents using BigQuery to ensure we have enough after jurisdiction deduplication
+        const rawData: Patent[] = await patentService.getPatents("", { applicant: companyName, status: 'Granted' }, 100, 'bigquery');
+        const grantedPatents = rawData.filter(p => p.status === 'Granted' || p.status === 'Patented Case' || p.status === 'Active').slice(0, 20);
+        // If there are none, still show some
+        setPatents(grantedPatents.length > 0 ? grantedPatents : rawData.slice(0, 20));
       } catch (err: any) {
         console.error("Failed to fetch patents:", err);
         setError(err.message || "Patent service unavailable");
