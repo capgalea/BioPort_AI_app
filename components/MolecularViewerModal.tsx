@@ -64,14 +64,10 @@ const MolecularViewerModal: React.FC<MolecularViewerModalProps> = ({ drug, onClo
    * when a CID is available. If not, we fallback to MolView.
    */
   const getViewerUrl = () => {
-    if (drug.pubchemCid) {
-      // Use PubChem's 3D Conformer embed which is highly reliable in iframes
-      return `https://pubchem.ncbi.nlm.nih.gov/compound/${drug.pubchemCid}#section=3D-Conformer&embed=true`;
-    }
-    if (drug.smiles) {
-      return `https://molview.org/?smiles=${encodeURIComponent(drug.smiles)}`;
-    }
-    return `https://molview.org/?q=${encodeURIComponent(drug.name)}`;
+    // Avoid hallucinatory pubchemCids by LLM which cause wrong structures to load.
+    // Use the primary drug name without synonyms in parentheses to improve resolution.
+    const cleanName = drug.name.split(' (')[0].trim();
+    return `https://pubchem.ncbi.nlm.nih.gov/compound/${encodeURIComponent(cleanName)}#section=3D-Conformer&embed=true`;
   };
 
   const viewerUrl = getViewerUrl();

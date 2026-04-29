@@ -10,9 +10,10 @@ interface DrugDetailModalProps {
   onOpen3D: (drug: any) => void;
 }
 
-const getStructureImageUrl = (cid?: string) => {
-  if (!cid) return null;
-  return `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/PNG?record_type=2d&image_size=400x300`;
+const getStructureImageUrl = (name?: string) => {
+  if (!name) return null;
+  const cleanName = name.split(' (')[0].trim();
+  return `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(cleanName)}/PNG?record_type=2d&image_size=400x300`;
 };
 
 const DrugDetailModal: React.FC<DrugDetailModalProps> = ({ drug, onClose, onOpen3D }) => {
@@ -57,7 +58,7 @@ const DrugDetailModal: React.FC<DrugDetailModalProps> = ({ drug, onClose, onOpen
     }
   };
   
-  const structureUrl = getStructureImageUrl(drug.pubchemCid);
+  const structureUrl = getStructureImageUrl(drug.name);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-none">
@@ -155,7 +156,10 @@ const DrugDetailModal: React.FC<DrugDetailModalProps> = ({ drug, onClose, onOpen
                  >
                    {structureUrl ? (
                      <>
-                        <img src={structureUrl} alt={`Structure of ${drug.name}`} className="max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" />
+                        <img src={structureUrl} alt={`Structure of ${drug.name}`} className="max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; const f = (e.target as HTMLImageElement).nextElementSibling; if (f) f.classList.remove('hidden'); }} />
+                        <div className="fallback-text text-slate-400 text-xs text-center hidden absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                           <FlaskConical className="w-6 h-6 mx-auto mb-1" /> No Structure
+                        </div>
                         <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors flex items-center justify-center">
                            <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow-lg text-xs font-bold text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0">
                               <Box className="w-3.5 h-3.5" /> View 3D

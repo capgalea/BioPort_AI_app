@@ -117,9 +117,10 @@ const DrugSearchView: React.FC = () => {
     }
   };
   
-  const getStructureImageUrl = (cid?: string) => {
-    if (!cid) return null;
-    return `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/${cid}/PNG?record_type=2d&image_size=300x200`;
+  const getStructureImageUrl = (name?: string) => {
+    if (!name) return null;
+    const cleanName = name.split(' (')[0].trim();
+    return `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/${encodeURIComponent(cleanName)}/PNG?record_type=2d&image_size=300x200`;
   };
 
   const toggleSelection = (id: string) => {
@@ -363,11 +364,19 @@ const DrugSearchView: React.FC = () => {
                     
                     <Tooltip content="2D Chemical Structure from PubChem">
                       <div className="bg-slate-50 h-60 rounded-b-3xl flex items-center justify-center p-4 border-t border-slate-100 shrink-0">
-                        {drug.pubchemCid ? (
-                          <img src={getStructureImageUrl(drug.pubchemCid) || ''} alt={`Structure of ${drug.name}`} className="max-h-full object-contain mix-blend-multiply" />
-                        ) : (
-                          <div className="text-slate-400 text-xs text-center"><FlaskConical className="w-6 h-6 mx-auto mb-1" /> No Structure</div>
-                        )}
+                        <img 
+                          src={getStructureImageUrl(drug.name) || ''} 
+                          alt={`Structure of ${drug.name}`} 
+                          className="max-h-full object-contain mix-blend-multiply" 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                            if (fallback) fallback.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="text-slate-400 text-xs text-center hidden">
+                          <FlaskConical className="w-6 h-6 mx-auto mb-1" /> No Structure
+                        </div>
                       </div>
                     </Tooltip>
                   </div>
