@@ -59,41 +59,61 @@ export const fetchPatentsFromGooglePatents = async (
     const response: GenerateContentResponse = await withExponentialBackoff(() =>
       ai.models.generateContent({
         model: "gemini-3.1-pro-preview",
-        contents: prompt,
+        contents: prompt + "\n\nIMPORTANT: Return a JSON object with a single property 'patents' containing the array of requested items.",
         config: {
           tools: [{ googleSearch: {} }],
           temperature: 0.1,
           thinkingConfig: { thinkingBudget: 1024 },
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                applicationNumber: { type: Type.STRING },
-                title: { type: Type.STRING },
-                abstract: { type: Type.STRING },
-                patentKind: { type: Type.STRING },
-                familyId: { type: Type.STRING },
-                dateFiled: { type: Type.STRING },
-                dateGranted: { type: Type.STRING },
-                url: { type: Type.STRING },
-                status: { type: Type.STRING },
-                applicants: { type: Type.ARRAY, items: { type: Type.STRING } },
-                inventors: { type: Type.ARRAY, items: { type: Type.STRING } }
+            type: Type.OBJECT,
+            properties: {
+              patents: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    applicationNumber: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    abstract: { type: Type.STRING },
+                    patentKind: { type: Type.STRING },
+                    familyId: { type: Type.STRING },
+                    dateFiled: { type: Type.STRING },
+                    dateGranted: { type: Type.STRING },
+                    url: { type: Type.STRING },
+                    status: { type: Type.STRING },
+                    applicants: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    inventors: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ["applicationNumber", "title", "dateFiled", "url", "status", "applicants", "inventors", "abstract", "patentKind", "familyId"]
+                }
               },
-              required: ["applicationNumber", "title", "dateFiled", "url", "status", "applicants", "inventors", "abstract", "patentKind", "familyId"]
+              summary: { type: Type.STRING },
+              references: { type: Type.ARRAY, items: { type: Type.STRING } },
+              rating: { type: Type.STRING },
+              feedback: { type: Type.STRING },
+              technicalFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+              keyClaimsSummary: { type: Type.STRING },
+              noveltyOverPriorArt: { type: Type.STRING },
+              pctStatusInfo: { type: Type.STRING },
+              designatedStates: { type: Type.ARRAY, items: { type: Type.STRING } },
+              assignees: { type: Type.ARRAY, items: { type: Type.STRING } },
+              names: { type: Type.ARRAY, items: { type: Type.STRING } },
+              companies: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
           }
         }
       })
     );
 
-    const text = response.text || "[]";
+    const text = response.text || "{}";
     console.log("Model response text length:", text.length);
     let data: any[] = [];
     try {
-      data = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      if (parsed.patents && Array.isArray(parsed.patents)) {
+         data = parsed.patents;
+      }
     } catch (e) {
       console.error("Failed to parse Google Patents JSON:", e);
       console.log("Raw text was:", text);

@@ -8,17 +8,68 @@ import { costTracker } from "./costTracker.ts";
 
 // --- HELPER FUNCTIONS ---
 
+const enforceProxySchema = (config: any, params: any) => {
+  if (!config) config = {};
+  config.responseMimeType = "application/json";
+  
+  if (!config.responseSchema) {
+    config.responseSchema = { type: Type.OBJECT, properties: {} };
+  }
+  
+  let schema = config.responseSchema;
+  let isWrappedArray = false;
+  
+  if (schema.type === Type.ARRAY) {
+     const originalItems = schema.items;
+     schema = {
+       type: Type.OBJECT,
+       properties: {
+         __proxy_array__: { type: Type.ARRAY, items: originalItems }
+       }
+     };
+     isWrappedArray = true;
+     if (typeof params.contents === 'string') {
+        params.contents += "\n\nIMPORTANT: Return a JSON object with a single property '__proxy_array__' containing the requested array of items.";
+     }
+  }
+
+  if (!schema.properties) schema.properties = {};
+  
+  const required = [
+    "summary", "references", "rating", "feedback", "technicalFields", 
+    "keyClaimsSummary", "noveltyOverPriorArt", "pctStatusInfo", 
+    "designatedStates", "assignees", "names", "companies"
+  ];
+  
+  for (const prop of required) {
+    if (!schema.properties[prop]) {
+       if (["references", "technicalFields", "designatedStates", "assignees", "names", "companies"].includes(prop)) {
+          schema.properties[prop] = { type: Type.ARRAY, items: { type: Type.STRING } };
+       } else {
+          schema.properties[prop] = { type: Type.STRING };
+       }
+    }
+  }
+  
+  config.responseSchema = schema;
+  return { newConfig: config, isWrappedArray };
+};
+
 const generateContentWithTracking = async (ai: GoogleGenAI, params: any): Promise<GenerateContentResponse> => {
+  const { newConfig, isWrappedArray } = enforceProxySchema(params.config || {}, params);
+  params.config = newConfig;
+
   const response = await withExponentialBackoff(() => ai.models.generateContent({
     model: params.model || 'gemini-3-flash-preview',
     contents: params.contents,
     config: {
-      ...(params.config || {}),
+      ...params.config,
       tools: params.tools,
       toolConfig: params.toolConfig
     }
   }));
   trackUsage(params.model || 'gemini-3-flash-preview', response);
+  
   return response;
 };
 
@@ -140,8 +191,9 @@ const sanitizeCompanyData = (data: any, originalRequestedName?: string): Company
 
 const extractJson = (text: string): any => {
   if (!text) return null;
+  let parsed: any = null;
   try {
-    return JSON.parse(text);
+    parsed = JSON.parse(text);
   } catch (e) {
     const startObj = text.indexOf('{');
     const startArr = text.indexOf('[');
@@ -161,14 +213,16 @@ const extractJson = (text: string): any => {
        if (end > start) {
          const jsonStr = text.substring(start, end + 1);
          try { 
-           return JSON.parse(jsonStr); 
-         } catch (e2) { 
-           return null; 
-         }
+           parsed = JSON.parse(jsonStr); 
+         } catch (e2) {}
        }
     }
-    return null;
   }
+
+  if (parsed && typeof parsed === 'object' && parsed !== null && '__proxy_array__' in parsed) {
+    return parsed.__proxy_array__;
+  }
+  return parsed;
 };
 
 const raceWithSignal = <T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> => {
@@ -616,7 +670,25 @@ export const fetchAllClinicalTrials = async (companyName: string): Promise<Pipel
         config: { 
           tools: [{ googleSearch: {} }], 
           temperature: 0.0,
-          thinkingConfig: { thinkingBudget: 0 }
+          thinkingConfig: { thinkingBudget: 0 },
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              trials: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    drugName: { type: Type.STRING },
+                    indication: { type: Type.STRING },
+                    phase: { type: Type.STRING },
+                    nctId: { type: Type.STRING },
+                    status: { type: Type.STRING }
+                  }
+                }
+              }
+            }
+          }
         },
       })
     );
@@ -700,7 +772,7 @@ export const fetchLatestNews = async (
   
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      generateContentWithTracking(ai, {
+      ai.models.generateContent({
         model: "gemini-3-flash-preview", 
         contents: prompt,
         config: { 
@@ -776,8 +848,6 @@ export const fetchLatestNews = async (
          // since the LLM often hallucinates deep links.
          if (supportedUrl) {
            cleanUrl = supportedUrl;
-         } else if (bestMatch && maxScore >= 3) {
-           cleanUrl = bestMatch;
          } else if (!cleanUrl.startsWith('http') && webChunks[idx]?.uri) {
            cleanUrl = webChunks[idx].uri;
          }
@@ -952,7 +1022,8 @@ export const analyzeCompanies = async (
             config: { 
               tools: [{ googleSearch: {} }], 
               temperature: 0.1,
-              thinkingConfig: { thinkingBudget: 2048 } 
+              thinkingConfig: { thinkingBudget: 2048 },
+              responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT } }
             },
           }), 
           signal
@@ -1209,7 +1280,8 @@ export const searchScienceJobs = async (filters: {
         config: {
           tools: [{ googleSearch: {} }],
           temperature: 0.0,
-          thinkingConfig: { thinkingBudget: 0 }
+          thinkingConfig: { thinkingBudget: 0 },
+          responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT } }
         }
       })
     );
@@ -1357,7 +1429,40 @@ export const fetchDetailedPatentsFromIPAustralia = async (query: string): Promis
           tools: [{ googleSearch: {} }], 
           temperature: 0.0,
           thinkingConfig: { thinkingBudget: 0 },
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              error: { type: Type.STRING },
+              patents: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING },
+                    title: { type: Type.STRING },
+                    abstract: { type: Type.STRING },
+                    jurisdiction: { type: Type.STRING },
+                    status: { type: Type.STRING },
+                    owners: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    applicants: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    inventors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    inventorsCountry: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    applicationNumber: { type: Type.STRING },
+                    patentType: { type: Type.STRING },
+                    patentKind: { type: Type.STRING },
+                    family: { type: Type.STRING },
+                    familyJurisdictions: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    dateFiled: { type: Type.STRING },
+                    datePublished: { type: Type.STRING },
+                    earliestPriorityDate: { type: Type.STRING },
+                    dateGranted: { type: Type.STRING },
+                    citedWork: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  }
+                }
+              }
+            }
+          }
         },
       })
     );
@@ -1569,13 +1674,31 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
     // For now, we'll use the standard chat creation, but we'll ensure the model is configured correctly.
     // Note: Context Caching is typically for contexts > 32k tokens.
     
+    const proxySchema = {
+      type: Type.OBJECT,
+      properties: {
+        summary: { type: Type.STRING },
+        references: { type: Type.ARRAY, items: { type: Type.STRING } },
+        rating: { type: Type.STRING },
+        feedback: { type: Type.STRING },
+        technicalFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+        keyClaimsSummary: { type: Type.STRING },
+        noveltyOverPriorArt: { type: Type.STRING },
+        pctStatusInfo: { type: Type.STRING },
+        designatedStates: { type: Type.ARRAY, items: { type: Type.STRING } },
+        assignees: { type: Type.ARRAY, items: { type: Type.STRING } },
+        names: { type: Type.ARRAY, items: { type: Type.STRING } },
+        companies: { type: Type.ARRAY, items: { type: Type.STRING } }
+      }
+    };
+
     chat = ai.chats.create({
-      model: config.model || 'gemini-3.1-pro-preview', 
+      model: config.model || 'gemini-3-flash-preview', 
       config: { 
         systemInstruction: systemInstruction,
         tools: activeTools,
         toolConfig: { includeServerSideToolInvocations: true },
-        // Optional: cachedContent: 'name-of-cache' if we were using the caches API
+        responseSchema: proxySchema
       },
       history: history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] }))
     });
@@ -1595,7 +1718,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
         }
         finalResult = chunk; // Store the last chunk to get grounding metadata
       }
-      trackUsage(config.model || 'gemini-3.1-pro-preview', { text: fullText } as any);
+      trackUsage(config.model || 'gemini-3-flash-preview', { text: fullText } as any);
       
       return {
         text: fullText,
@@ -1604,7 +1727,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
       };
     } else {
       let result: GenerateContentResponse = await withExponentialBackoff(() => chat!.sendMessage({ message: newMessage }));
-      trackUsage(config.model || 'gemini-3.1-pro-preview', result);
+      trackUsage(config.model || 'gemini-3-flash-preview', result);
       
       // Tool Execution Loop
       let functionCalls = result.functionCalls;
@@ -1629,7 +1752,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
             functionResponse: response,
           })),
         }));
-        trackUsage(config.model || 'gemini-3.1-pro-preview', result);
+        trackUsage(config.model || 'gemini-3-flash-preview', result);
         functionCalls = result.functionCalls;
       }
 

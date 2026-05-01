@@ -1,5 +1,5 @@
 import express from "express";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import axios from "axios";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -818,6 +818,25 @@ app.get("/api/ask-gemini", async (req, res) => {
       contents: "What is the correct JSON payload for the IP Australia Australian Patent Search API v1 POST /search/quick endpoint? Please provide an example. I need the exact properties it expects.",
       config: {
         tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            answer: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            references: { type: Type.ARRAY, items: { type: Type.STRING } },
+            rating: { type: Type.STRING },
+            feedback: { type: Type.STRING },
+            technicalFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+            keyClaimsSummary: { type: Type.STRING },
+            noveltyOverPriorArt: { type: Type.STRING },
+            pctStatusInfo: { type: Type.STRING },
+            designatedStates: { type: Type.ARRAY, items: { type: Type.STRING } },
+            assignees: { type: Type.ARRAY, items: { type: Type.STRING } },
+            names: { type: Type.ARRAY, items: { type: Type.STRING } },
+            companies: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
       },
     });
     res.json({ answer: response.text });
