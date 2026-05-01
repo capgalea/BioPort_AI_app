@@ -36,7 +36,7 @@ const enforceProxySchema = (config: any, params: any) => {
   if (!schema.properties) schema.properties = {};
   
   const required = [
-    "summary", "references", "rating", "feedback", "technicalFields", 
+    "answer", "summary", "references", "rating", "feedback", "technicalFields", 
     "keyClaimsSummary", "noveltyOverPriorArt", "pctStatusInfo", 
     "designatedStates", "assignees", "names", "companies"
   ];
@@ -60,7 +60,7 @@ const generateContentWithTracking = async (ai: GoogleGenAI, params: any): Promis
   params.config = newConfig;
 
   const response = await withExponentialBackoff(() => ai.models.generateContent({
-    model: params.model || 'gemini-3-flash-preview',
+    model: params.model || 'gemini-3.1-pro-preview',
     contents: params.contents,
     config: {
       ...params.config,
@@ -68,7 +68,7 @@ const generateContentWithTracking = async (ai: GoogleGenAI, params: any): Promis
       toolConfig: params.toolConfig
     }
   }));
-  trackUsage(params.model || 'gemini-3-flash-preview', response);
+  trackUsage(params.model || 'gemini-3.1-pro-preview', response);
   
   return response;
 };
@@ -137,7 +137,7 @@ export const checkGeminiHealth = async (): Promise<boolean> => {
   const ai = new GoogleGenAI({ apiKey, fetch: fetch as any } as any);
   try {
     await generateContentWithTracking(ai, {
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.1-pro-preview",
       contents: "ping",
     });
     return true;
@@ -325,7 +325,7 @@ export const generatePatentComparisonSummary = async (
   `;
 
   const response: GenerateContentResponse = await generateContentWithTracking(ai, {
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-3.1-pro-preview",
     contents: prompt,
     config: {
       temperature: 0.2,
@@ -600,7 +600,7 @@ export const runAssigneeAnalysisPipeline = async (
   `;
 
   const response: GenerateContentResponse = await generateContentWithTracking(ai, {
-    model: "gemini-3.1-flash-lite-preview",
+    model: "gemini-3.1-pro-preview",
     contents: prompt,
     config: {
       temperature: 0.1,
@@ -772,41 +772,47 @@ export const fetchLatestNews = async (
   
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
-      ai.models.generateContent({
-        model: "gemini-3-flash-preview", 
-        contents: prompt,
+      generateContentWithTracking(ai, {
+        model: "gemini-3.1-pro-preview", 
+        contents: prompt + "\n\nIMPORTANT: Return a JSON object with a single property 'news' containing the array of requested items.",
         config: { 
           tools: [{ googleSearch: {} }], 
           temperature: 0.05, // Lower temperature for higher factual precision
           thinkingConfig: { thinkingBudget: 2048 }, 
           responseMimeType: "application/json",
           responseSchema: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                source: { type: Type.STRING },
-                timeAgo: { type: Type.STRING },
-                url: { 
-                  type: Type.STRING,
-                  description: "Full absolute URL starting with https://"
-                },
-                category: { 
-                  type: Type.STRING,
-                  description: "Must be: Industry | Regulatory | Clinical | Financial | Reports"
-                },
-                summary: { type: Type.STRING }
-              },
-              required: ["title", "source", "timeAgo", "url", "category", "summary"]
+            type: Type.OBJECT,
+            properties: {
+              news: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    source: { type: Type.STRING },
+                    timeAgo: { type: Type.STRING },
+                    url: { 
+                      type: Type.STRING,
+                      description: "Full absolute URL starting with https://"
+                    },
+                    category: { 
+                      type: Type.STRING,
+                      description: "Must be: Industry | Regulatory | Clinical | Financial | Reports"
+                    },
+                    summary: { type: Type.STRING }
+                  },
+                  required: ["title", "source", "timeAgo", "url", "category", "summary"]
+                }
+              }
             }
           }
         },
       })
     );
     
-    const rawText = response.text || "";
-    const data = extractJson(rawText);
+    const rawText = response.text || "{}";
+    const parsedData = extractJson(rawText) || {};
+    const data = Array.isArray(parsedData) ? parsedData : (parsedData.news || []);
     
     // Extract URLs from grounding metadata
     const groundingMetadata = response.candidates?.[0]?.groundingMetadata;
@@ -1035,7 +1041,9 @@ export const analyzeCompanies = async (
       if (!Array.isArray(data)) {
         return batch.map(name => ({ name, found: false } as any));
       }
-      return data.map((item, idx) => sanitizeCompanyData(item, batch[idx])); 
+      const results = data.map((item, idx) => sanitizeCompanyData(item, batch[idx]));
+      await cacheService.saveBatchCompanies(results, region);
+      return results;
     } catch (error: any) {
       if (error.message === 'Aborted' || signal?.aborted) throw new Error("Aborted");
       return batch.map(name => ({ name, found: false } as any)); 
@@ -1175,7 +1183,7 @@ export const performDrugDeepSearch = async (
           const response: GenerateContentResponse = await withExponentialBackoff(() => 
             raceWithSignal(
               generateContentWithTracking(ai, {
-                model: "gemini-3-flash-preview", 
+                model: "gemini-3.1-pro-preview", 
                 contents: prompt,
                 config: { 
                   tools: [{ googleSearch: {} }], 
@@ -1275,7 +1283,7 @@ export const searchScienceJobs = async (filters: {
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
       generateContentWithTracking(ai, {
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-pro-preview",
         contents: query,
         config: {
           tools: [{ googleSearch: {} }],
@@ -1303,7 +1311,7 @@ export const analyzeResearcher = async (name: string, institution: string): Prom
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
       generateContentWithTracking(ai, {
-        model: "gemini-3-flash-preview", 
+        model: "gemini-3.1-pro-preview", 
         contents: prompt,
         config: { tools: [{ googleSearch: {} }], temperature: 0.0, thinkingConfig: { thinkingBudget: 0 } },
       })
@@ -1323,7 +1331,7 @@ export const analyzeDrug = async (drugName: string): Promise<DrugProfile | null>
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
       generateContentWithTracking(ai, {
-        model: "gemini-3-flash-preview", 
+        model: "gemini-3.1-pro-preview", 
         contents: prompt,
         config: { tools: [{ googleSearch: {} }], temperature: 0.0, thinkingConfig: { thinkingBudget: 0 } },
       })
@@ -1423,7 +1431,7 @@ export const fetchDetailedPatentsFromIPAustralia = async (query: string): Promis
   try {
     const response: GenerateContentResponse = await withExponentialBackoff(() => 
       generateContentWithTracking(ai, {
-        model: "gemini-3-flash-preview", 
+        model: "gemini-3.1-pro-preview", 
         contents: prompt,
         config: { 
           tools: [{ googleSearch: {} }], 
@@ -1677,6 +1685,7 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
     const proxySchema = {
       type: Type.OBJECT,
       properties: {
+        answer: { type: Type.STRING },
         summary: { type: Type.STRING },
         references: { type: Type.ARRAY, items: { type: Type.STRING } },
         rating: { type: Type.STRING },
@@ -1693,11 +1702,12 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
     };
 
     chat = ai.chats.create({
-      model: config.model || 'gemini-3-flash-preview', 
+      model: config.model || 'gemini-3.1-pro-preview', 
       config: { 
-        systemInstruction: systemInstruction,
+        systemInstruction: systemInstruction + "\n\nIMPORTANT: You must return a JSON object containing an 'answer' property with your full markdown response.",
         tools: activeTools,
         toolConfig: { includeServerSideToolInvocations: true },
+        responseMimeType: "application/json",
         responseSchema: proxySchema
       },
       history: history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] }))
@@ -1714,20 +1724,20 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
       for await (const chunk of stream) {
         if (chunk.text) {
           fullText += chunk.text;
-          onChunk(fullText);
+          let textToPass = fullText; try { const answerMatch = fullText.match(/"answer"\s*:\s*"([^]*)"/); if (answerMatch) { textToPass = answerMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'); } } catch(e) {} onChunk(textToPass);
         }
         finalResult = chunk; // Store the last chunk to get grounding metadata
       }
-      trackUsage(config.model || 'gemini-3-flash-preview', { text: fullText } as any);
+      trackUsage(config.model || 'gemini-3.1-pro-preview', { text: fullText } as any);
       
       return {
-        text: fullText,
+        text: extractJson(fullText)?.answer || fullText,
         groundingMetadata: finalResult?.candidates?.[0]?.groundingMetadata,
         chatInstance: chat
       };
     } else {
       let result: GenerateContentResponse = await withExponentialBackoff(() => chat!.sendMessage({ message: newMessage }));
-      trackUsage(config.model || 'gemini-3-flash-preview', result);
+      trackUsage(config.model || 'gemini-3.1-pro-preview', result);
       
       // Tool Execution Loop
       let functionCalls = result.functionCalls;
@@ -1752,12 +1762,12 @@ ${config.contextData ? `\n\n## DATABASE CONTEXT\nUse the following user-loaded c
             functionResponse: response,
           })),
         }));
-        trackUsage(config.model || 'gemini-3-flash-preview', result);
+        trackUsage(config.model || 'gemini-3.1-pro-preview', result);
         functionCalls = result.functionCalls;
       }
 
       return { 
-        text: result.text, 
+        text: extractJson(result.text || '')?.answer || result.text, 
         groundingMetadata: result.candidates?.[0]?.groundingMetadata,
         chatInstance: chat
       };

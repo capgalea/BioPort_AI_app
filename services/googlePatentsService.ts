@@ -88,6 +88,7 @@ export const fetchPatentsFromGooglePatents = async (
                   required: ["applicationNumber", "title", "dateFiled", "url", "status", "applicants", "inventors", "abstract", "patentKind", "familyId"]
                 }
               },
+              answer: { type: Type.STRING },
               summary: { type: Type.STRING },
               references: { type: Type.ARRAY, items: { type: Type.STRING } },
               rating: { type: Type.STRING },

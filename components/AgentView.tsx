@@ -16,7 +16,7 @@ interface AgentViewProps {
 
 const MODELS = [
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fast)' },
-  { id: 'gemini-3-pro-preview', name: 'Gemini 3.0 Pro (Reasoning)' }
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Reasoning)' }
 ];
 
 const AgentView: React.FC<AgentViewProps> = ({ companies }) => {

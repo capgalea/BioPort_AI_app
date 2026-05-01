@@ -27,7 +27,7 @@ const DisclaimerOverlay = lazy(() => import('./components/DisclaimerOverlay'));
 const ArchitectureView = lazy(() => import('./components/ArchitectureView'));
 const EmploymentView = lazy(() => import('./components/EmploymentView'));
 const AnalyticsView = lazy(() => import('./components/AnalyticsView'));
-const InstructionModal = lazy(() => import('./components/InstructionModal'));
+const InstructionModal = lazy(() => import('./components/InstructionModalComponent'));
 const SystemInfoView = lazy(() => import('./components/SystemInfoView'));
 const SystemTutorialView = lazy(() => import('./components/SystemTutorialView'));
 const ChangelogView = lazy(() => import('./components/ChangelogView'));

@@ -26,7 +26,12 @@ class CacheService {
     if (this.dbPromise) return this.dbPromise;
 
     this.dbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const idb = typeof indexedDB !== 'undefined' ? indexedDB : (typeof window !== 'undefined' ? (window as any).indexedDB : undefined);
+      
+      if (!idb) {
+        return reject(new Error('indexedDB is not defined'));
+      }
+      const request = idb.open(DB_NAME, DB_VERSION);
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;

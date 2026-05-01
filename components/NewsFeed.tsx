@@ -82,6 +82,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ companyName, title, className = "" 
       if (data && data.length > 0) {
         setNews(data);
         setLastRefreshed(new Date());
+        cacheService.saveNewsCache(data, topic);
       } else {
         // If it's a specific company search and no news is found, explicitly set to empty
         setNews([]);

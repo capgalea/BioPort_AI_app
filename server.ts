@@ -814,7 +814,7 @@ app.get("/api/ask-gemini", async (req, res) => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro",
+      model: "gemini-3.1-pro-preview",
       contents: "What is the correct JSON payload for the IP Australia Australian Patent Search API v1 POST /search/quick endpoint? Please provide an example. I need the exact properties it expects.",
       config: {
         tools: [{ googleSearch: {} }],
