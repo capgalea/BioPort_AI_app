@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Pill, Activity, AlertTriangle, FileText, Calendar, Loader2, ExternalLink, Dna, Move } from 'lucide-react';
-import { DrugProfile } from '../types.ts';
-import { analyzeDrug } from '../services/geminiService.ts';
-import Tooltip from './Tooltip.tsx';
+import { DrugProfile } from '../types';
+import { analyzeDrug } from '../services/geminiService';
+import Tooltip from './Tooltip';
 
 interface ProductModalProps {
   productName: string;

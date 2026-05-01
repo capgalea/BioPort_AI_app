@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import posthog from 'posthog-js';
 import { X, CloudLightning, Search, Loader2, CheckCircle2, MapPin, Building2, Calendar, Move, Filter, Download, ListFilter, Database, ChevronRight, Info } from 'lucide-react';
-import { supabaseService } from '../services/supabaseService.ts';
-import { CompanyData } from '../types.ts';
-import MultiSelect from './MultiSelect.tsx';
+import { supabaseService } from '../services/supabaseService';
+import { CompanyData } from '../types';
+import MultiSelect from './MultiSelect';
 
 interface CloudImportModalProps {
   onClose: () => void;

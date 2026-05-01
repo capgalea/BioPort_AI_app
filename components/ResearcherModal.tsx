@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { X, User, BookOpen, FlaskConical, ExternalLink, Loader2, GraduationCap, Search, Sparkles, Move } from 'lucide-react';
-import { ResearcherProfile } from '../types.ts';
-import { analyzeResearcher } from '../services/geminiService.ts';
+import { ResearcherProfile } from '../types';
+import { analyzeResearcher } from '../services/geminiService';
 
 interface ResearcherModalProps {
   name: string;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabaseService } from '../services/supabaseService.ts';
+import { supabaseService } from '../services/supabaseService';
 import { History, Calendar, Loader2, Info, ArrowLeft, Terminal, Sparkles, Code } from 'lucide-react';
 
 interface ChangelogEntry {

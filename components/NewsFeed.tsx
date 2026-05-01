@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Newspaper, ExternalLink, Clock, Loader2, RefreshCw, Star, Zap, Search, ChevronDown, FlaskConical, Brain, Shield, Heart, Zap as Energy, Briefcase, Activity, Globe, Dna, Play, Check, Settings2, Target, Radio, Info, AlertTriangle, Filter, Calendar, ShieldCheck, Building2 } from 'lucide-react';
-import { NewsItem } from '../types.ts';
-import { fetchLatestNews } from '../services/geminiService.ts';
-import { cacheService } from '../services/cacheService.ts';
-import Tooltip from './Tooltip.tsx';
+import { NewsItem } from '../types';
+import { fetchLatestNews } from '../services/geminiService';
+import { cacheService } from '../services/cacheService';
+import Tooltip from './Tooltip';
 
 interface NewsFeedProps {
   companyName?: string;
@@ -56,6 +56,11 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ companyName, title, className = "" 
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
   const loadingIntervalRef = useRef<number | null>(null);
+  const newsLengthRef = useRef(0);
+
+  useEffect(() => {
+    newsLengthRef.current = news.length;
+  }, [news.length]);
 
   const loadNews = useCallback(async (bypassCache = false) => {
     const topic = companyName || `${selectedSector}_${[...selectedCategories].sort().join("_")}_${selectedTimePeriod}`;
@@ -63,18 +68,22 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ companyName, title, className = "" 
     if (!companyName && !selectedSector) return;
 
     if (!bypassCache) {
-      const cached = await cacheService.getCachedNews(topic);
-      if (cached) {
-        setNews(cached.items);
-        setLastRefreshed(new Date(cached.timestamp));
-        setLoading(false);
-        if (cacheService.isNewsFresh(cached.timestamp)) {
-           return;
+      try {
+        const cached = await cacheService.getCachedNews(topic);
+        if (cached) {
+          setNews(cached.items);
+          setLastRefreshed(new Date(cached.timestamp));
+          setLoading(false);
+          if (cacheService.isNewsFresh(cached.timestamp)) {
+             return;
+          }
         }
+      } catch (err) {
+        console.warn("Failed to get cached news:", err);
       }
     }
 
-    if (bypassCache || !news.length) setLoading(true);
+    if (bypassCache || newsLengthRef.current === 0) setLoading(true);
     else setIsRevalidating(true);
 
     try {
@@ -82,7 +91,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ companyName, title, className = "" 
       if (data && data.length > 0) {
         setNews(data);
         setLastRefreshed(new Date());
-        cacheService.saveNewsCache(data, topic);
+        cacheService.saveNewsCache(data, topic).catch(e => console.warn('Cache save failed', e));
       } else {
         // If it's a specific company search and no news is found, explicitly set to empty
         setNews([]);
@@ -93,7 +102,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ companyName, title, className = "" 
       setLoading(false);
       setIsRevalidating(false);
     }
-  }, [companyName, selectedSector, selectedCategories, selectedTimePeriod, news.length]);
+  }, [companyName, selectedSector, selectedCategories, selectedTimePeriod]);
 
   useEffect(() => {
     if (isInitialized) {

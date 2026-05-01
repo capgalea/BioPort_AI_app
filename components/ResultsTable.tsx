@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { CompanyData, getEntityCategory } from '../types.ts';
+import { CompanyData, getEntityCategory } from '../types';
 import { ChevronDown, ChevronUp, Search, Settings, Download, Trash2, RefreshCw, ExternalLink, Loader2, FileJson, FileSpreadsheet, Eye, X, Filter, Building2 } from 'lucide-react';
-import Tooltip from './Tooltip.tsx';
+import Tooltip from './Tooltip';
 
 interface ResultsTableProps {
   companies: CompanyData[];
   totalRecords: number;
   onCompanyClick: (company: CompanyData) => void;
-  onDeleteCompany: (company: CompanyData) => void;
+  onDeleteCompany: (company: CompanyData, deleteFromCloud: boolean) => void;
+  onDeleteCompanies: (companyIds: string[], deleteFromCloud: boolean) => void;
   onRefreshCompany: (company: CompanyData) => void;
   globalFilter: string;
   onGlobalFilterChange: (value: string) => void;
@@ -43,6 +44,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
   totalRecords,
   onCompanyClick, 
   onDeleteCompany, 
+  onDeleteCompanies,
   onRefreshCompany,
   globalFilter,
   onGlobalFilterChange,
@@ -84,7 +86,12 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                 <div className="flex gap-2">
                     <Tooltip content="View Details"><button onClick={() => onCompanyClick(c)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Eye className="w-4 h-4" /></button></Tooltip>
                     <Tooltip content="Refresh Data"><button onClick={() => onRefreshCompany(c)} className="p-2 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg"><RefreshCw className="w-4 h-4" /></button></Tooltip>
-                    <Tooltip content="Delete"><button onClick={() => onDeleteCompany(c)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button></Tooltip>
+                    <Tooltip content="Delete"><button onClick={(e) => {
+                        e.preventDefault();
+                        console.log("Delete button clicked in table:", c.name);
+                        const confirmDelete = confirm(`Delete ${c.name} from local cache? Click OK to also delete from Cloud database.`);
+                        onDeleteCompany(c, confirmDelete);
+                    }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button></Tooltip>
                 </div>
             ) 
         },
@@ -330,6 +337,17 @@ const ResultsTable: React.FC<ResultsTableProps> = ({
                        <button onClick={clearAllFilters} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-rose-600 rounded-xl font-bold text-sm hover:bg-rose-50 transition-all shadow-sm">
                           <X className="w-4 h-4" /> Clear Filters
                        </button>
+                    )}
+                    {selectedIds.size > 0 && (
+                        <button 
+                            onClick={() => {
+                                const confirmDelete = confirm(`Are you sure you want to delete ${selectedIds.size} companies from local cache? Click OK to also delete from Cloud database.`);
+                                onDeleteCompanies(Array.from(selectedIds), confirmDelete);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 transition-all shadow-sm"
+                        >
+                            <Trash2 className="w-4 h-4" /> Delete Selected ({selectedIds.size})
+                        </button>
                     )}
                     <div className="relative" ref={colMenuRef}>
                        <button onClick={() => setIsColMenuOpen(!isColMenuOpen)} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm">

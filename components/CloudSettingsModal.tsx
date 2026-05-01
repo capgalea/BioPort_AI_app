@@ -1,5 +1,5 @@
 import { Cloud, Save, X, AlertCircle, CheckCircle2, Trash2, Database, Copy, Check, ChevronDown, ChevronUp, Globe, Star, MessageSquare, Mail, Key, Code2, RefreshCw, Activity, ExternalLink, ShieldAlert, Terminal, Info, ExternalLink as LinkIcon, ShieldCheck, Move } from 'lucide-react';
-import { supabaseService } from '../services/supabaseService.ts';
+import { supabaseService } from '../services/supabaseService';
 import React, { useState, useEffect, useRef } from 'react';
 
 interface CloudSettingsModalProps {

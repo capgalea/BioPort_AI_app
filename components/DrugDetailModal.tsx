@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Pill, Dna, AlertTriangle, FileText, Calendar, Building2, FlaskConical, Microscope, Users, BookOpen, Move, Box } from 'lucide-react';
-import { DrugDeepDive } from '../types.ts';
-import Tooltip from './Tooltip.tsx';
+import { DrugDeepDive } from '../types';
+import Tooltip from './Tooltip';
 
 interface DrugDetailModalProps {
   drug: DrugDeepDive & { id: string };

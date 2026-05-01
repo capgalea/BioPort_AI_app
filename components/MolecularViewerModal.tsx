@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Move, ExternalLink, Maximize2, Minimize2, FlaskConical, Globe, Box } from 'lucide-react';
-import Tooltip from './Tooltip.tsx';
+import Tooltip from './Tooltip';
 
 interface MolecularViewerModalProps {
   drug: { name: string; id: string; pubchemCid?: string; smiles?: string; zIndex: number };

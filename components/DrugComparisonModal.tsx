@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { X, Box } from 'lucide-react';
-import { DrugDeepDive } from '../types.ts';
-import Tooltip from './Tooltip.tsx';
+import { DrugDeepDive } from '../types';
+import Tooltip from './Tooltip';
 
 interface DrugComparisonModalProps {
   drugs: (DrugDeepDive & { id: string })[];

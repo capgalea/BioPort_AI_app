@@ -12,6 +12,8 @@ const enforceProxySchema = (config: any, params: any) => {
   if (!config) config = {};
   config.responseMimeType = "application/json";
   
+  const schemaProvided = !!config.responseSchema;
+  
   if (!config.responseSchema) {
     config.responseSchema = { type: Type.OBJECT, properties: {} };
   }
@@ -35,19 +37,23 @@ const enforceProxySchema = (config: any, params: any) => {
 
   if (!schema.properties) schema.properties = {};
   
-  const required = [
-    "answer", "summary", "references", "rating", "feedback", "technicalFields", 
-    "keyClaimsSummary", "noveltyOverPriorArt", "pctStatusInfo", 
-    "designatedStates", "assignees", "names", "companies"
-  ];
-  
-  for (const prop of required) {
-    if (!schema.properties[prop]) {
-       if (["references", "technicalFields", "designatedStates", "assignees", "names", "companies"].includes(prop)) {
-          schema.properties[prop] = { type: Type.ARRAY, items: { type: Type.STRING } };
-       } else {
-          schema.properties[prop] = { type: Type.STRING };
-       }
+  // Only inject ALL these properties if a schema wasn't explicitly provided.
+  // Otherwise, we pollute the prompt's explicit schema instructions.
+  if (!schemaProvided) {
+    const required = [
+      "answer", "summary", "references", "rating", "feedback", "technicalFields", 
+      "keyClaimsSummary", "noveltyOverPriorArt", "pctStatusInfo", 
+      "designatedStates", "assignees", "names", "companies"
+    ];
+    
+    for (const prop of required) {
+      if (!schema.properties[prop]) {
+         if (["references", "technicalFields", "designatedStates", "assignees", "names", "companies"].includes(prop)) {
+            schema.properties[prop] = { type: Type.ARRAY, items: { type: Type.STRING } };
+         } else {
+            schema.properties[prop] = { type: Type.STRING };
+         }
+      }
     }
   }
   
@@ -756,7 +762,7 @@ export const fetchLatestNews = async (
   SELECTED FOCUS CATEGORIES: ${categoriesStr}
   
   INSTRUCTIONS:
-  1. Use Google Search to find verified, professional news from authoritative sources (Endpoints News, Stat News, BioSpace, Reuters, GlobeNewswire, BioWorld).
+  1. Use Google Search to find verified, professional news from authoritative sources (Endpoints News, Stat News, BioSpace, Reuters, GlobeNewswire, BioWorld, Biotech Intelligence Brief, NovaPharma News, BioPharma Dive, CatalystAlert, MarketBeat FDA Calendar, BioCircuit).
   2. ${strictFilterInstruction}
   3. DATE VERIFICATION (CRITICAL): Only include articles published within the ${periodStr}. Verify timestamps.
   4. Map each news item into one of these categories: Industry, Regulatory, Clinical, Financial, Reports (use 'Reports' for market forecasts, whitepapers, and future projections).
@@ -764,7 +770,7 @@ export const fetchLatestNews = async (
   
   LINK REQUIREMENTS (CRITICAL):
   6. COPY THE REAL URL: You must provide the EXACT, FULL source URL for every article from the search results. 
-  7. ABSOLUTE URLS: Every URL must start with "https://". 
+  7. ABSOLUTE URLS: Every URL must start with "https://" or "http://". 
   8. NO HALLUCINATIONS: Do NOT invent plausible-sounding URLs. If a specific direct link to a headline is not confirmed in the search data, do not include that headline in the JSON.
   
   FORMAT: JSON array of objects with keys: title, source, timeAgo (e.g. '2h ago'), url, category, summary (max 15 words).
@@ -820,7 +826,9 @@ export const fetchLatestNews = async (
     const webChunks = chunks.map(chunk => chunk.web).filter(Boolean);
     const supports = groundingMetadata?.groundingSupports || [];
 
-    let news = (data || []).map((item: any, idx: number) => {
+    const dataArray = Array.isArray(data) ? data : [];
+    
+    let news = dataArray.map((item: any, idx: number) => {
        let cleanUrl = (item.url || '').trim();
        
        if (webChunks.length > 0) {
@@ -881,6 +889,106 @@ export const fetchLatestNews = async (
       }
     });
 
+    if (news.length === 0 && companyName) {
+      try {
+        const fallbackPrompt = `
+        Search the official corporate website, "press releases" section, or "newsroom" for "${companyName}".
+        Find the most recent 20 relevant announcements or updates from the company itself (regardless of the time period).
+        IMPORTANT: Only include results that come directly from the company's official domain, and ONLY about "${companyName}".
+        Return exactly in the same JSON format as previously requested.
+        `;
+        
+        const fbResponse = await withExponentialBackoff(() => 
+          generateContentWithTracking(ai, {
+            model: "gemini-3.1-pro-preview", 
+            contents: fallbackPrompt + "\n\nIMPORTANT: Return a JSON object with a single property 'news' containing the array of requested items.",
+            config: { 
+              tools: [{ googleSearch: {} }], 
+              temperature: 0.1,
+              thinkingConfig: { thinkingBudget: 1024 }, 
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  news: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        title: { type: Type.STRING },
+                        source: { type: Type.STRING },
+                        timeAgo: { type: Type.STRING },
+                        url: { type: Type.STRING },
+                        category: { type: Type.STRING },
+                        summary: { type: Type.STRING }
+                      },
+                      required: ["title", "source", "timeAgo", "url", "category", "summary"]
+                    }
+                  }
+                }
+              }
+            },
+          })
+        );
+        
+        const fbRawText = fbResponse.text || "{}";
+        const fbParsedData = extractJson(fbRawText) || {};
+        const fbData = Array.isArray(fbParsedData) ? fbParsedData : (fbParsedData.news || []);
+        const fbDataArray = Array.isArray(fbData) ? fbData : [];
+        
+        const fbGroundingMetadata = fbResponse.candidates?.[0]?.groundingMetadata;
+        const fbChunks = fbGroundingMetadata?.groundingChunks || [];
+        const fbWebChunks = fbChunks.map(chunk => chunk.web).filter(Boolean);
+        const fbSupports = fbGroundingMetadata?.groundingSupports || [];
+
+        news = fbDataArray.map((item: any, idx: number) => {
+           let cleanUrl = (item.url || '').trim();
+           if (fbWebChunks.length > 0) {
+             let supportedUrl = null;
+             if (fbSupports.length > 0) {
+               const titleIndex = item.title ? fbRawText.indexOf(item.title) : -1;
+               const summaryIndex = item.summary ? fbRawText.indexOf(item.summary) : -1;
+               for (const support of fbSupports) {
+                 const start = support.segment?.startIndex || 0;
+                 const end = support.segment?.endIndex || 0;
+                 const matchesTitle = titleIndex !== -1 && titleIndex >= start && titleIndex <= end;
+                 const matchesSummary = summaryIndex !== -1 && summaryIndex >= start && summaryIndex <= end;
+                 if ((matchesTitle || matchesSummary) && support.groundingChunkIndices?.length > 0) {
+                   const chunkIndex = support.groundingChunkIndices[0];
+                   if (fbChunks[chunkIndex]?.web?.uri) {
+                     supportedUrl = fbChunks[chunkIndex].web.uri;
+                     break;
+                   }
+                 }
+               }
+             }
+             if (supportedUrl) {
+               cleanUrl = supportedUrl;
+             } else if (!cleanUrl.startsWith('http') && fbWebChunks[idx]?.uri) {
+               cleanUrl = fbWebChunks[idx].uri;
+             }
+           }
+           if (cleanUrl && !cleanUrl.startsWith('http')) {
+              cleanUrl = 'https://' + cleanUrl;
+           }
+           return {
+             ...item,
+             url: cleanUrl,
+             id: `news-fb-${idx}-${Date.now()}`
+           };
+        }).filter((item: any) => {
+          try {
+            const urlObj = new URL(item.url);
+            return urlObj.pathname.length > 1 || urlObj.search.length > 0;
+          } catch (e) {
+            return false;
+          }
+        });
+      } catch (fbErr) {
+        console.warn("Fallback fetch failed", fbErr);
+      }
+    }
+
     if (news.length > 0) {
       try {
         // Check URLs via backend proxy
@@ -909,7 +1017,7 @@ export const fetchLatestNews = async (
 
     if (news.length > 0) {
       const cacheTopic = companyName || `${sector || "Global"}_${[...categories].sort().join("_")}_${timePeriod}`;
-      cacheService.saveNewsCache(news, cacheTopic);
+      cacheService.saveNewsCache(news, cacheTopic).catch(() => {});
     }
 
     return news;
@@ -1029,7 +1137,70 @@ export const analyzeCompanies = async (
               tools: [{ googleSearch: {} }], 
               temperature: 0.1,
               thinkingConfig: { thinkingBudget: 2048 },
-              responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT } }
+              responseSchema: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    entityType: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    sector: { type: Type.STRING },
+                    acquisitionStatus: { type: Type.STRING },
+                    acquiredBy: { type: Type.STRING },
+                    contact: { 
+                      type: Type.OBJECT, 
+                      properties: {
+                        hqAddress: { type: Type.STRING },
+                        website: { type: Type.STRING },
+                        email: { type: Type.STRING },
+                        phone: { type: Type.STRING }
+                      }
+                    },
+                    keyApprovedDrugs: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    pipeline: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          drugName: { type: Type.STRING },
+                          indication: { type: Type.STRING },
+                          phase: { type: Type.STRING },
+                          nctId: { type: Type.STRING },
+                          status: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    keyTechnologies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    partnerships: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    scientificPublications: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          title: { type: Type.STRING },
+                          source: { type: Type.STRING },
+                          year: { type: Type.STRING },
+                          citations: { type: Type.NUMBER }
+                        }
+                      }
+                    },
+                    keyResearchers: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          name: { type: Type.STRING },
+                          title: { type: Type.STRING },
+                          bio: { type: Type.STRING }
+                        }
+                      }
+                    },
+                    found: { type: Type.BOOLEAN }
+                  },
+                  required: ["name", "entityType", "description", "sector", "acquisitionStatus", "contact", "keyApprovedDrugs", "pipeline", "keyTechnologies", "partnerships", "scientificPublications", "keyResearchers", "found"]
+                }
+              }
             },
           }), 
           signal
@@ -1037,12 +1208,13 @@ export const analyzeCompanies = async (
       );
       
       const text = response.text || "";
+      console.log("analyzeCompanies raw response:", text);
       const data = extractJson(text);
       if (!Array.isArray(data)) {
         return batch.map(name => ({ name, found: false } as any));
       }
-      const results = data.map((item, idx) => sanitizeCompanyData(item, batch[idx]));
-      await cacheService.saveBatchCompanies(results, region);
+      const results = data.map((item: any, idx: number) => sanitizeCompanyData(item, batch[idx]));
+      await cacheService.saveBatchCompanies(results, region).catch(() => {});
       return results;
     } catch (error: any) {
       if (error.message === 'Aborted' || signal?.aborted) throw new Error("Aborted");
@@ -1289,7 +1461,28 @@ export const searchScienceJobs = async (filters: {
           tools: [{ googleSearch: {} }],
           temperature: 0.0,
           thinkingConfig: { thinkingBudget: 0 },
-          responseSchema: { type: Type.ARRAY, items: { type: Type.OBJECT } }
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                title: { type: Type.STRING },
+                company: { type: Type.STRING },
+                location: { type: Type.STRING },
+                workType: { type: Type.STRING },
+                level: { type: Type.STRING },
+                classification: { type: Type.STRING },
+                description: { type: Type.STRING },
+                salaryRange: { type: Type.STRING },
+                postedDate: { type: Type.STRING },
+                requirements: { type: Type.ARRAY, items: { type: Type.STRING } },
+                url: { type: Type.STRING },
+                howToApply: { type: Type.STRING }
+              },
+              required: ['id', 'title', 'company', 'location', 'workType', 'level', 'classification', 'description', 'postedDate', 'requirements', 'url']
+            }
+          }
         }
       })
     );

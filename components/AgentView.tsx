@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { CompanyData, ChatSession, ChatMessage } from '../types.ts';
+import { CompanyData, ChatSession, ChatMessage } from '../types';
 import { 
   Bot, Send, Sparkles, BookOpen, Database, 
   Settings2, Loader2, Globe, GraduationCap, XCircle, Workflow, History, MessageSquare, Plus, Trash2, Calendar, ShieldCheck
 } from 'lucide-react';
-import { chatWithAgent } from '../services/geminiService.ts';
-import { cacheService } from '../services/cacheService.ts';
-import HelpPopup from './HelpPopup.tsx';
-import SchematicModal from './SchematicModal.tsx';
-import MultiSelect from './MultiSelect.tsx';
+import { chatWithAgent } from '../services/geminiService';
+import { cacheService } from '../services/cacheService';
+import HelpPopup from './HelpPopup';
+import SchematicModal from './SchematicModal';
+import MultiSelect from './MultiSelect';
 
 interface AgentViewProps {
   companies: CompanyData[];

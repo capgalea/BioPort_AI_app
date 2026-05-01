@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, Building2, Telescope, Globe, AlignLeft, Cloud, CloudOff, Settings, XCircle, Check, ListOrdered, Sparkles, MousePointerClick, Bot, Database, FileText, Activity, History, Trash2, Clock, RotateCcw } from 'lucide-react';
-import HelpPopup from './HelpPopup.tsx';
-import { supabaseService } from '../services/supabaseService.ts';
-import { cacheService } from '../services/cacheService.ts';
-import Tooltip from './Tooltip.tsx';
-import { SearchHistoryItem } from '../types.ts';
+import HelpPopup from './HelpPopup';
+import { supabaseService } from '../services/supabaseService';
+import { cacheService } from '../services/cacheService';
+import Tooltip from './Tooltip';
+import { SearchHistoryItem } from '../types';
 
 export type SearchMode = 'names' | 'sector' | 'agent';
 

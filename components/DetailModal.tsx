@@ -3,16 +3,16 @@ import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 // Added Loader2 to lucide-react imports to resolve "Cannot find name 'Loader2'" error
 import { X, Globe, Mail, Phone, MapPin, CheckCircle2, FlaskConical, Users, BookOpen, ExternalLink, GraduationCap, Search, Microscope, Pill, Activity, ArrowRight, User, Move, Cpu, Star, Download, FileSpreadsheet, FileJson, FileText, File, Building2, Loader2, ShieldCheck } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { CompanyData, isAcademicEntity } from '../types.ts';
-import PipelineVisualizer from './PipelineVisualizer.tsx';
-import CompanyLogo from './CompanyLogo.tsx';
-import ClinicalTrialsModal from './ClinicalTrialsModal.tsx';
-import HelpPopup from './HelpPopup.tsx';
-import Tooltip from './Tooltip.tsx';
+import { CompanyData, isAcademicEntity } from '../types';
+import PipelineVisualizer from './PipelineVisualizer';
+import CompanyLogo from './CompanyLogo';
+import ClinicalTrialsModal from './ClinicalTrialsModal';
+import HelpPopup from './HelpPopup';
+import Tooltip from './Tooltip';
 
 // Lazy load news feed and patent section for performance
-const NewsFeed = lazy(() => import('./NewsFeed.tsx'));
-const PatentSection = lazy(() => import('./PatentSection.tsx'));
+const NewsFeed = lazy(() => import('./NewsFeed'));
+const PatentSection = lazy(() => import('./PatentSection'));
 
 interface DetailModalProps {
   company: CompanyData | null;

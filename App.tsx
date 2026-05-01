@@ -5,12 +5,12 @@ import { CompanyData, AnalysisStatus, isAcademicEntity, ViewMode, PipelineDrug, 
 import { analyzeCompanies, discoverCompaniesBySector, discoverWithAgent } from './services/geminiService.ts';
 import { cacheService } from './services/cacheService.ts';
 import { supabaseService } from './services/supabaseService.ts';
-import MultiSelect from './components/MultiSelect.tsx';
-import InputSection, { SearchMode } from './components/InputSection.tsx';
-import CompanyLogo from './components/CompanyLogo.tsx';
-import HomeView from './components/HomeView.tsx';
-import Tooltip from './components/Tooltip.tsx';
-import LoginView from './components/LoginView.tsx';
+import MultiSelect from './components/MultiSelect';
+import InputSection, { SearchMode } from './components/InputSection';
+import CompanyLogo from './components/CompanyLogo';
+import HomeView from './components/HomeView';
+import Tooltip from './components/Tooltip';
+import LoginView from './components/LoginView';
 import ProspectGenerator from "./components/ProspectGenerator";
 import posthog from 'posthog-js';
 
@@ -26,7 +26,7 @@ const FeedbackPopup = lazy(() => import('./components/FeedbackPopup'));
 const DisclaimerOverlay = lazy(() => import('./components/DisclaimerOverlay'));
 const ArchitectureView = lazy(() => import('./components/ArchitectureView'));
 const EmploymentView = lazy(() => import('./components/EmploymentView'));
-const AnalyticsView = lazy(() => import('./components/AnalyticsView'));
+const VisualizationGrid = lazy(() => import('./components/VisualizationGrid'));
 const InstructionModal = lazy(() => import('./components/InstructionModalComponent'));
 const SystemInfoView = lazy(() => import('./components/SystemInfoView'));
 const SystemTutorialView = lazy(() => import('./components/SystemTutorialView'));
@@ -36,7 +36,7 @@ const CloudImportModal = lazy(() => import('./components/CloudImportModal'));
 const DrugSearchView = lazy(() => import('./components/DrugSearchView'));
 const ResultsTable = lazy(() => import('./components/ResultsTable'));
 const NewsFeed = lazy(() => import('./components/NewsFeed'));
-const PatentAnalyticsView = lazy(() => import('./components/PatentAnalyticsView'));
+const PatentDataView = lazy(() => import('./components/PatentDataView'));
 const PatentSearchPage = lazy(() => import('./components/PatentSearchPage'));
 const PatentSearchAgent = lazy(() => import('./components/PatentSearchAgent'));
 const PatentAIAgentView = lazy(() => import('./components/PatentAIAgentView'));
@@ -316,8 +316,8 @@ const KeywordFilter = ({ selected, onChange }: any) => {
   return (
     <div className="flex flex-wrap gap-2 items-center p-2 bg-slate-50 border border-slate-200 rounded-xl min-h-[42px] flex-1">
       <Search className="w-4 h-4 text-slate-400 ml-1" />
-      {selected.map((kw: string) => (
-        <span key={kw} className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1">
+      {selected.map((kw: string, idx: number) => (
+        <span key={`${kw}-${idx}`} className="bg-blue-100 text-blue-700 px-2 py-1 rounded-lg text-[10px] font-black uppercase flex items-center gap-1">
           {kw}
           <button onClick={() => removeKeyword(kw)} className="hover:text-blue-900"><X className="w-3 h-3" /></button>
         </span>
@@ -513,7 +513,11 @@ function App() {
           // If cached, load a small chunk immediately to unblock UI
           const cachedFirstPage = await cacheService.getPaginatedCompanies(50);
           if (_mounted) {
-            setAllCompanies(cachedFirstPage);
+            setAllCompanies(() => {
+                const map = new Map<string, CompanyData>();
+                cachedFirstPage.forEach(c => map.set(c.id, map.has(c.id) ? mergeCompanyData(map.get(c.id)!, c) : c));
+                return Array.from(map.values());
+            });
             setIsInitializing(false);
           }
           
@@ -522,7 +526,13 @@ function App() {
             setTimeout(async () => {
               try {
                 const restCached = await cacheService.getPaginatedCompanies(INITIAL_LOAD_COUNT);
-                 if (_mounted) setAllCompanies(restCached);
+                 if (_mounted) {
+                     setAllCompanies(() => {
+                        const map = new Map<string, CompanyData>();
+                        restCached.forEach(c => map.set(c.id, map.has(c.id) ? mergeCompanyData(map.get(c.id)!, c) : c));
+                        return Array.from(map.values());
+                     });
+                 }
               } catch(e) {}
             }, 100);
           }
@@ -534,7 +544,11 @@ function App() {
             const sanitizedFirst = firstCloudData.map(sanitizeCompanyData);
             await cacheService.saveBatchCompanies(sanitizedFirst, "Global");
             if (_mounted) {
-               setAllCompanies(sanitizedFirst);
+               setAllCompanies(() => {
+                   const map = new Map<string, CompanyData>();
+                   sanitizedFirst.forEach(c => map.set(c.id, map.has(c.id) ? mergeCompanyData(map.get(c.id)!, c) : c));
+                   return Array.from(map.values());
+               });
                setTotalCacheCount(sanitizedFirst.length);
                setIsInitializing(false);
             }
@@ -547,7 +561,11 @@ function App() {
                   const sanitizedRest = restCloudData.map(sanitizeCompanyData);
                   await cacheService.saveBatchCompanies(sanitizedRest, "Global");
                   if (_mounted) {
-                     setAllCompanies(sanitizedRest);
+                     setAllCompanies(() => {
+                         const map = new Map<string, CompanyData>();
+                         sanitizedRest.forEach(c => map.set(c.id, map.has(c.id) ? mergeCompanyData(map.get(c.id)!, c) : c));
+                         return Array.from(map.values());
+                     });
                      setTotalCacheCount(sanitizedRest.length);
                      const now = new Date().toISOString();
                      localStorage.setItem('bioport_last_synced', now);
@@ -574,7 +592,7 @@ function App() {
   const filteredCompanies = useMemo(() => {
     // Return early if no filter to save CPU during initial render
     if (!globalFilter && Object.keys(columnFilters).length === 0 && selectedCompanyIds.length === 0 && selectedSectors.length === 0 && selectedCountries.length === 0 && selectedRegions.length === 0 && selectedKeywords.length === 0) {
-       return allCompanies.sort((a, b) => a.name.localeCompare(b.name));
+       return [...allCompanies].sort((a, b) => a.name.localeCompare(b.name));
     }
 
     const getCellValue = (c: CompanyData, colId: string): string => {
@@ -851,8 +869,13 @@ function App() {
       const cloudData = await supabaseService.getAllCompanies(totalCount || 10000);
       if (cloudData && cloudData.length > 0) {
         const sanitized = cloudData.map(sanitizeCompanyData);
+        await cacheService.clearAllCompanies();
         await cacheService.saveBatchCompanies(sanitized, "Global");
-        setAllCompanies(sanitized);
+        setAllCompanies(() => {
+            const map = new Map<string, CompanyData>();
+            sanitized.forEach(c => map.set(c.id, map.has(c.id) ? mergeCompanyData(map.get(c.id)!, c) : c));
+            return Array.from(map.values());
+        });
         setTotalCacheCount(sanitized.length);
         const now = new Date().toISOString();
         try {
@@ -870,15 +893,43 @@ function App() {
     }
   };
 
-  const executePermanentDelete = async (company: CompanyData) => {
-    posthog.capture('delete_company', { company_name: company.name });
+  const handleDeleteCompanies = async (ids: string[], deleteFromCloud: boolean) => {
+    posthog.capture('delete_companies', { count: ids.length, deleteFromCloud });
+    // Optimistic UI update
+    setAllCompanies(prev => prev.filter(c => !ids.includes(c.id)));
+    setSelectedCompanyIds(prev => prev.filter(id => !ids.includes(id)));
+    setTotalCacheCount(prev => Math.max(0, prev - ids.length));
+    
     try {
-      if (supabaseService.isConfigured()) {
+      if (deleteFromCloud && supabaseService.isConfigured()) {
+        await Promise.all(ids.map(id => supabaseService.deleteCompanyById(id)));
+      }
+      await Promise.all(ids.map(id => cacheService.deleteCompanyById(id)));
+    } catch (err) {
+        console.error("Bulk delete failed", err);
+        alert("Some deletions failed.");
+    }
+  };
+
+  const executePermanentDelete = async (company: CompanyData, deleteFromCloud: boolean) => {
+    console.log("Attempting delete:", company.id, company.name, deleteFromCloud);
+    posthog.capture('delete_company', { company_name: company.name, deleteFromCloud });
+    
+    // Optimistic UI update
+    setAllCompanies(prev => prev.filter(c => c.id !== company.id));
+    setSelectedCompanyIds(prev => prev.filter(id => id !== company.id));
+    setTotalCacheCount(prev => Math.max(0, prev - 1));
+
+    try {
+      if (deleteFromCloud && supabaseService.isConfigured()) {
+        console.log("Deleting from cloud:", company.id);
         await supabaseService.deleteCompanyById(company.id);
       }
+      console.log("Deleting from cache:", company.id);
       await cacheService.deleteCompanyById(company.id);
-      setAllCompanies(prev => prev.filter(c => c.id !== company.id));
-      setTotalCacheCount(prev => Math.max(0, prev - 1));
+      console.log("Delete complete");
+    } catch (err) {
+      console.error("Delete failed", err);
     } finally { setCompanyToDelete(null); }
   };
 
@@ -889,7 +940,18 @@ function App() {
       try {
         const newItems = await cacheService.getPaginatedCompanies(12, allCompanies.length);
         if (newItems.length > 0) {
-          setAllCompanies(prev => [...prev, ...newItems.filter(n => !prev.some(p => p.id === n.id))]);
+          setAllCompanies(prev => {
+            const uniqueMap = new Map();
+            prev.forEach(c => uniqueMap.set(c.id, c));
+            newItems.forEach(c => {
+               if(!uniqueMap.has(c.id)) {
+                   uniqueMap.set(c.id, c);
+               } else {
+                   uniqueMap.set(c.id, mergeCompanyData(uniqueMap.get(c.id)!, c));
+               }
+            });
+            return Array.from(uniqueMap.values());
+          });
         }
       } finally { setIsLazyLoading(false); }
     }
@@ -1181,6 +1243,21 @@ function App() {
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${refreshingIds.has(c.id) ? 'animate-spin text-blue-600' : ''}`} />
                           </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              if (confirm(`Delete ${c.name} from local cache? Click OK to also delete from Cloud database.`)) {
+                                executePermanentDelete(c, true);
+                              } else if (confirm("Delete ONLY from local cache?")) {
+                                executePermanentDelete(c, false);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Delete Panel"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1207,11 +1284,11 @@ function App() {
                 <ResultsTable companies={filteredCompanies} totalRecords={allCompanies.length} onCompanyClick={(c) => {
                     setSelectedCompany(c);
                     posthog.capture('view_company_detail', { company_name: c.name });
-                }} onDeleteCompany={executePermanentDelete} onRefreshCompany={handleRefreshCompany} globalFilter={globalFilter} onGlobalFilterChange={setGlobalFilter} columnFilters={columnFilters} onColumnFiltersChange={setColumnFilters} />
+                }} onDeleteCompany={(c, cloud) => executePermanentDelete(c, cloud)} onDeleteCompanies={handleDeleteCompanies} onRefreshCompany={handleRefreshCompany} globalFilter={globalFilter} onGlobalFilterChange={setGlobalFilter} columnFilters={columnFilters} onColumnFiltersChange={setColumnFilters} />
               )}
             </>
           )}
-          {view === 'analytics' && <AnalyticsView companies={filteredCompanies} onNavigateToAgent={() => setView('agent')} onCompanyClick={(c) => {
+          {view === 'analytics' && <VisualizationGrid companies={filteredCompanies} onNavigateToAgent={() => setView('agent')} onCompanyClick={(c) => {
               setSelectedCompany(c);
               posthog.capture('view_company_from_analytics', { company_name: c.name });
           }} />}
@@ -1223,7 +1300,7 @@ function App() {
              </div>
           )}
 
-          {view === 'patentAnalytics' && <PatentAnalyticsView initialCompany={patentAnalyticsCompany || undefined} patents={analyticsPatents} />}
+          {view === 'patentAnalytics' && <PatentDataView initialCompany={patentAnalyticsCompany || undefined} patents={analyticsPatents} />}
           {view === 'patentAIAgent' && <PatentAIAgentView companies={allCompanies} />}
           {view === 'patentSearch' && <PatentSearchPage onPatentsRetrieved={(patents: Patent[]) => setAnalyticsPatents(patents)} />}
 

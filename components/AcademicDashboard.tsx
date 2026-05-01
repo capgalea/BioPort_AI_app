@@ -1,12 +1,12 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { CompanyData, Publication } from '../types.ts';
+import { CompanyData, Publication } from '../types';
 import { 
   Activity, Layers, 
   Search, ArrowRightLeft, X, Plus, GraduationCap, BookOpen, Users, MapPin, ChevronDown, Check, ExternalLink, Star, Award, TrendingUp, FlaskConical, Beaker, Pill, SlidersHorizontal
 } from 'lucide-react';
-import CompanyMap from './CompanyMap.tsx';
-import HelpPopup from './HelpPopup.tsx';
+import CompanyMap from './CompanyMap';
+import HelpPopup from './HelpPopup';
 
 interface DashboardProps {
   institutes: CompanyData[];

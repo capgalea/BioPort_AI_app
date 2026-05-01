@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Image as ImageIcon, Trash2, HelpCircle, User as UserIcon, Plus, Loader2, CheckCircle2, AlertCircle, Pencil, Check, RotateCcw, Type, Square, ArrowUpRight, MousePointer2, Undo2, MousePointerClick, Move } from 'lucide-react';
-import { supabaseService } from '../services/supabaseService.ts';
+import { supabaseService } from '../services/supabaseService';
 
 interface ImageEditorProps {
   imageSrc: string;

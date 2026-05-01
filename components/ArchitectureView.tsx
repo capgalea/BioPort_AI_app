@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Bot, Globe, ShieldCheck, Laptop, Server, HardDrive, Terminal, Network, ChevronRight, Sparkles, Workflow, Zap, Lock, Cloud, RefreshCw, AlertTriangle, CheckCircle2, Loader2, ShieldAlert, Cpu, Activity, Info, Key, Fingerprint } from 'lucide-react';
-import { supabaseService } from '../services/supabaseService.ts';
-import MermaidWorkflowModal from './MermaidWorkflowModal.tsx';
+import { supabaseService } from '../services/supabaseService';
+import MermaidWorkflowModal from './MermaidWorkflowModal';
 
 const ArchitectureView: React.FC = () => {
   const [showWorkflow, setShowWorkflow] = useState(false);

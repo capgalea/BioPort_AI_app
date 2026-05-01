@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
-import { Patent as GlobalPatent } from "../types.ts";
-import { patentService } from "../services/patentService.ts";
+import { Patent as GlobalPatent } from "../types";
+import { patentService } from "../services/patentService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

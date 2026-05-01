@@ -1,9 +1,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { X, Activity, Loader2, FlaskConical, ExternalLink, Search, GraduationCap, Move } from 'lucide-react';
-import { PipelineDrug, PipelinePhase } from '../types.ts';
-import { fetchAllClinicalTrials } from '../services/geminiService.ts';
-import Tooltip from './Tooltip.tsx';
+import { PipelineDrug, PipelinePhase } from '../types';
+import { fetchAllClinicalTrials } from '../services/geminiService';
+import Tooltip from './Tooltip';
 
 interface ClinicalTrialsModalProps {
   companyName: string;

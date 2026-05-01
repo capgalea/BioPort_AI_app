@@ -1,12 +1,12 @@
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { CompanyData, PipelinePhase } from '../types.ts';
+import { CompanyData, PipelinePhase } from '../types';
 import { 
   BarChart3, Activity, Filter, Layers, FlaskConical, 
   Search, ArrowRightLeft, X, Plus, CheckCircle2, Globe2, ChevronDown, Check, Building2, SlidersHorizontal
 } from 'lucide-react';
-import CompanyMap from './CompanyMap.tsx';
-import HelpPopup from './HelpPopup.tsx';
+import CompanyMap from './CompanyMap';
+import HelpPopup from './HelpPopup';
 
 interface DashboardProps {
   companies: CompanyData[];

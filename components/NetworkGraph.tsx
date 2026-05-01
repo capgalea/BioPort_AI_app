@@ -1,10 +1,10 @@
 
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { CompanyData } from '../types.ts';
+import { CompanyData } from '../types';
 import { ZoomIn, ZoomOut, Maximize2, Network, Sun, Moon, Search, X, Eye, EyeOff, Sliders, RotateCcw, Globe, ArrowRight, Expand, Minimize, Filter, AlertTriangle, SlidersHorizontal } from 'lucide-react';
-import Tooltip from './Tooltip.tsx';
-import MultiSelect from './MultiSelect.tsx';
+import Tooltip from './Tooltip';
+import MultiSelect from './MultiSelect';
 
 interface NetworkGraphProps {
   companies: CompanyData[];

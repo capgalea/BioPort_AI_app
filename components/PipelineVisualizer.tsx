@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { PipelineDrug, PipelinePhase } from '../types.ts';
+import { PipelineDrug, PipelinePhase } from '../types';
 import { Search, FlaskConical, GraduationCap } from 'lucide-react';
-import Tooltip from './Tooltip.tsx';
+import Tooltip from './Tooltip';
 
 interface PipelineVisualizerProps {
   pipeline: PipelineDrug[];

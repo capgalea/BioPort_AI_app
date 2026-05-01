@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Bot, Search, FileText, Loader2, CheckCircle2, AlertCircle, Database, Globe, Pill, Building2, Trash2 } from 'lucide-react';
-import { runPatentAIAgent } from '../services/geminiService.ts';
-import { CompanyData } from '../types.ts';
+import { runPatentAIAgent } from '../services/geminiService';
+import { CompanyData } from '../types';
 
 interface PatentAIAgentViewProps {
   companies: CompanyData[];

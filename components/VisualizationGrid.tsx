@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
 import { Building2, GraduationCap, Bot, ArrowRight, HelpCircle, Network } from 'lucide-react';
-import Dashboard from './Dashboard.tsx';
-import AcademicDashboard from './AcademicDashboard.tsx';
-import NetworkGraph from './NetworkGraph.tsx';
-import { CompanyData, isAcademicEntity } from '../types.ts';
-import Tooltip from './Tooltip.tsx';
+import Dashboard from './Dashboard';
+import AcademicDashboard from './AcademicDashboard';
+import NetworkGraph from './NetworkGraph';
+import { CompanyData, isAcademicEntity } from '../types';
+import Tooltip from './Tooltip';
 
-interface AnalyticsViewProps {
+interface VisualizationGridProps {
   companies: CompanyData[];
   onNavigateToAgent: () => void;
   onHelpClick?: () => void;
   onCompanyClick?: (company: CompanyData) => void;
 }
 
-const AnalyticsView: React.FC<AnalyticsViewProps> = ({ companies, onNavigateToAgent, onHelpClick, onCompanyClick }) => {
+const VisualizationGrid: React.FC<VisualizationGridProps> = ({ companies, onNavigateToAgent, onHelpClick, onCompanyClick }) => {
   const [activeSubView, setActiveSubView] = useState<'corp' | 'academic' | 'network'>('corp');
 
   const corpCompanies = companies.filter(c => !isAcademicEntity(c));
@@ -98,4 +98,4 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ companies, onNavigateToAg
   );
 };
 
-export default AnalyticsView;
+export default VisualizationGrid;

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabaseService } from '../services/supabaseService.ts';
+import { supabaseService } from '../services/supabaseService';
 import { Dna, Lock, Mail, Loader2, ArrowRight, AlertCircle, Settings, RefreshCw, ArrowLeft, CheckCircle2, ShieldCheck, Github, UserPlus, KeyRound, Info, ExternalLink, Copy, Check, ShieldAlert, AlertTriangle, Database, PanelRightOpen, UserCheck, CloudOff, Send, HelpCircle, ChevronDown, ChevronUp, Terminal, ShieldX, Key, Globe, Move, ExternalLink as LinkIcon, Box, X } from 'lucide-react';
-import CloudSettingsModal from './CloudSettingsModal.tsx';
+import CloudSettingsModal from './CloudSettingsModal';
 
 interface LoginViewProps {
   onLoginSuccess: () => void;

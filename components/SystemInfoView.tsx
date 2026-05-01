@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Info, Code, MapPin, User, Calendar, ShieldCheck, Zap, Globe, Github, Cpu, Database, Fingerprint } from 'lucide-react';
-import { supabaseService } from '../services/supabaseService.ts';
+import { supabaseService } from '../services/supabaseService';
 
 const SystemInfoView: React.FC = () => {
   const currentDate = new Date().toLocaleDateString('en-US', {

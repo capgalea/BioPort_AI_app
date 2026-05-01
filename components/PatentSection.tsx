@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { FileText, Loader2, ExternalLink, ShieldCheck, Calendar, Hash } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
-import { patentService } from '../services/patentService.ts';
-import { Patent } from '../types.ts';
+import { patentService } from '../services/patentService';
+import { Patent } from '../types';
 
 interface PatentSectionProps {
   companyName: string;

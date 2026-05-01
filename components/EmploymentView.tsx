@@ -7,9 +7,9 @@ import {
   Stethoscope, Microscope, FlaskConical, Calendar,
   ArrowLeft, ChevronRight, FileText, Send, X
 } from 'lucide-react';
-import { JobOpportunity } from '../types.ts';
-import { searchScienceJobs } from '../services/geminiService.ts';
-import HelpPopup from './HelpPopup.tsx';
+import { JobOpportunity } from '../types';
+import { searchScienceJobs } from '../services/geminiService';
+import HelpPopup from './HelpPopup';
 
 const JOB_LEVELS = ["Any Level", "Intern", "Graduate", "PhD", "Post-Doc", "Mid-Level", "Senior", "Director"];
 const WORK_TYPES = ["Any Type", "Remote", "Hybrid", "Onsite"];

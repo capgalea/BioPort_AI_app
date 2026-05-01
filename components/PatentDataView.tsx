@@ -84,7 +84,7 @@ const SortableColumnItem = ({ column, isVisible, onToggle }: { column: any, isVi
   );
 };
 
-export default function PatentAnalyticsView({ initialCompany, patents: passedPatents }: { initialCompany?: string, patents?: Patent[] }) {
+export default function PatentDataView({ initialCompany, patents: passedPatents }: { initialCompany?: string, patents?: Patent[] }) {
   const [patents, setPatents] = useState<Patent[]>(() => {
     if (passedPatents && passedPatents.length > 0) return passedPatents;
     const saved = localStorage.getItem('bioport_patent_analytics_results');

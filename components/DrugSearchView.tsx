@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Pill, Search, Loader2, FlaskConical, Dna, Activity, Building2, BookOpen, ExternalLink, Microscope, AlertTriangle, CheckCircle2, AlertCircle, FileText, Calendar, LayoutGrid, List as ListIcon, Columns, X, MousePointerClick, BoxSelect, Box, Trash2 } from 'lucide-react';
-import { performDrugDeepSearch } from '../services/geminiService.ts';
-import { DrugDeepDive } from '../types.ts';
-import Tooltip from './Tooltip.tsx';
-import DrugResultsTable from "./DrugResultsTable.tsx";
-import DrugComparisonModal from './DrugComparisonModal.tsx';
-import DrugDetailModal from './DrugDetailModal.tsx';
-import MolecularViewerModal from './MolecularViewerModal.tsx';
+import { performDrugDeepSearch } from '../services/geminiService';
+import { DrugDeepDive } from '../types';
+import Tooltip from './Tooltip';
+import DrugResultsTable from "./DrugResultsTable";
+import DrugComparisonModal from './DrugComparisonModal';
+import DrugDetailModal from './DrugDetailModal';
+import MolecularViewerModal from './MolecularViewerModal';
 
 const DrugSearchView: React.FC = () => {
   const [query, setQuery] = useState(() => localStorage.getItem('bioport_drug_search_query') || '');

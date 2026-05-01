@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { DrugDeepDive } from '../types.ts';
+import { DrugDeepDive } from '../types';
 import { CheckCircle2, Box } from 'lucide-react';
-import Tooltip from './Tooltip.tsx';
+import Tooltip from './Tooltip';
 
 interface DrugResultsTableProps {
   drugs: (DrugDeepDive & { id: string })[];

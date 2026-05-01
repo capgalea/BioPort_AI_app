@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { CompanyData, isAcademicEntity } from '../types.ts';
+import { CompanyData, isAcademicEntity } from '../types';
 import { MapPin, AlertCircle, Loader2, Search, ExternalLink } from 'lucide-react';
 
 interface CompanyMapProps {
